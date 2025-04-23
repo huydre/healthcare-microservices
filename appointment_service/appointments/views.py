@@ -13,7 +13,12 @@ class AppointmentCreateView(APIView):
         data['patient_id'] = request.user.id  # Lấy từ JWT
         serializer = AppointmentSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            appointment = serializer.save()
+            send_notification(
+                user_id=appointment.patient_id,
+                message=f"Lịch hẹn với bác sĩ {appointment.doctor_id} đã được đặt lúc {appointment.scheduled_time}",
+                token=request.headers.get('Authorization').split(' ')[1]
+            )
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
@@ -68,3 +73,17 @@ class AppointmentDetailView(APIView):
 
         appointment.delete()
         return Response({'message': 'Đã hủy lịch'})
+
+def send_notification(user_id, message, token):
+    import requests
+    url = "http://localhost:8007/api/notify/send/"
+    data = {
+        "recipient_id": user_id,
+        "message": message,
+        "notification_type": "SYSTEM"
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        requests.post(url, json=data, headers=headers)
+    except Exception as e:
+        print(f"⚠️ Không thể gửi notify: {e}")

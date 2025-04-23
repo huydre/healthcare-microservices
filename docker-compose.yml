@@ -1,0 +1,42 @@
+version: '3.9'
+
+services:
+  user_service:
+    build: ./user_service
+    ports:
+      - "8001:8001"
+  
+  appointment_service:
+    build: ./appointment_service
+    ports:
+      - "8002:8002"
+  
+  clinical_service:
+    build: ./clinical_service
+    ports:
+      - "8003:8003"
+
+  pharmacy_service:
+    build: ./pharmacy_service
+    ports:
+      - "8004:8004"
+
+  lab_service:
+    build: ./lab_service
+    ports:
+      - "8005:8005"
+
+  insurance_service:
+    build: ./insurance_service
+    ports:
+      - "8006:8006"
+
+  notification_service:
+    build: ./notification_service
+    ports:
+      - "8007:8007"
+
+  gateway:
+    build: ./gateway
+    ports:
+      - "8000:8000"

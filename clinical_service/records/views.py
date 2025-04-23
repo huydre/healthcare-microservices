@@ -4,6 +4,7 @@ from rest_framework import status
 from .models import MedicalRecord, VitalSign
 from .serializers import MedicalRecordSerializer, VitalSignSerializer
 from rest_framework.permissions import IsAuthenticated
+import requests
 
 class CreateMedicalRecordView(APIView):
     permission_classes = [IsAuthenticated]
@@ -13,7 +14,28 @@ class CreateMedicalRecordView(APIView):
         data['doctor_id'] = request.user.id
         serializer = MedicalRecordSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            record = serializer.save()
+            # Tự động tạo đơn thuốc sau khi ghi hồ sơ
+            notify_pharmacy_create_prescription(
+                record_id=record.id,
+                doctor_id=request.user.id,
+                patient_id=record.patient_id,
+                token=request.headers.get('Authorization').split(' ')[1]
+            )
+
+            create_lab_order(
+                record_id=record.id,
+                doctor_id=request.user.id,
+                test_id=1,
+                token=request.headers.get('Authorization').split(' ')[1]
+            )
+
+            create_insurance_claim(
+                patient_id=record.patient_id,
+                record_id=record.id,
+                token=request.headers.get('Authorization').split(' ')[1]
+            )
+            
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
@@ -40,3 +62,34 @@ class AddVitalSignView(APIView):
             serializer.save()
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
+    
+def notify_pharmacy_create_prescription(record_id, doctor_id, patient_id, token):
+    url = 'http://localhost:8004/api/pharmacy/prescriptions/create/'
+    data = {
+        'record_id': record_id,
+        'doctor_id': doctor_id,
+        'patient_id': patient_id,
+        'status': 'PENDING'
+    }
+    headers = {'Authorization': f'Bearer {token}'}
+    requests.post(url, json=data, headers=headers)
+
+def create_lab_order(record_id, doctor_id, test_id, token):
+    url = "http://localhost:8005/api/lab/orders/create/"
+    data = {
+        "record_id": record_id,
+        "doctor_id": doctor_id,
+        "test": test_id
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    requests.post(url, json=data, headers=headers)
+
+def create_insurance_claim(patient_id, record_id, token):
+    import requests
+    url = 'http://localhost:8006/api/insurance/claims/create/'
+    data = {
+        "patient_id": patient_id,
+        "record_id": record_id
+    }
+    headers = {"Authorization": f"Bearer {token}"}
+    requests.post(url, json=data, headers=headers)
