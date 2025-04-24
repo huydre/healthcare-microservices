@@ -10,11 +10,12 @@ urlpatterns = [
     path('users/login/', ProxyLogin.as_view()),
     path('users/me/', ProxyUserMe.as_view()),
     path('users/all/', ProxyUserList.as_view()),
+    path('doctors/', ProxyUserDoctors.as_view()),
 
     
     # Appointment
-    path('appointments/', ProxyAppointmentList.as_view()),
     path('appointments/create/', ProxyAppointmentCreate.as_view()),
+    path('appointments/', ProxyAppointmentList.as_view()),
     path('appointments/<int:pk>/', ProxyAppointmentDetail.as_view()),
 
     # Clinical
@@ -49,7 +50,7 @@ urlpatterns = [
 
 
 
-    path('api/vr/diagnose/', ProxyVRDiagnose.as_view(), name='proxy-vr-diagnose'),
+    path('vr/diagnose/', ProxyVRDiagnose.as_view()),
 
 ]
 

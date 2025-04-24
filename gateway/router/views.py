@@ -3,6 +3,8 @@ from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from urllib.parse import urlparse
+import jwt
+
 
 
 def forward_request(method, url, data=None, headers=None, params=None):
@@ -59,6 +61,13 @@ class ProxyUserList(APIView):
             headers={'Authorization': request.headers.get('Authorization')}
         )
 
+class ProxyUserDoctors(APIView):
+    def get(self, request):
+        return forward_request(
+            'GET',
+            f"{settings.USER_SERVICE}/api/users/doctors/"
+        )
+
 # ---- APPOINTMENT SERVICE ----
 
 class ProxyAppointmentCreate(APIView):
@@ -67,11 +76,28 @@ class ProxyAppointmentCreate(APIView):
     Body cần bao gồm field patient_id, doctor_id, scheduled_time, reason
     """
     def post(self, request):
-        # Không forward Authorization nữa
+        # 1. Lấy token
+        auth = request.headers.get('Authorization','')
+        if not auth.startswith('Bearer '):
+            return Response({'error':'Missing Bearer token'}, status=401)
+        token = auth.split(' ',1)[1]
+
+        # 2. Decode JWT
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            patient_id = payload.get('user_id')
+        except jwt.PyJWTError as e:
+            return Response({'error':'Invalid token','detail':str(e)}, status=401)
+
+        # 3. Chuẩn bị body mới
+        body = request.data.copy()
+        body['patient_id'] = patient_id
+
+        # 4. Forward
         return forward_request(
             'POST',
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/create/",
-            data=request.data
+            data=body
         )
 
 class ProxyAppointmentList(APIView):
@@ -79,10 +105,24 @@ class ProxyAppointmentList(APIView):
     GET /api/appointments/?role=PATIENT&user_id=3  (hoặc DOCTOR)
     """
     def get(self, request):
+        auth = request.headers.get('Authorization','')
+        if not auth.startswith('Bearer '):
+            return Response({'error':'Missing Bearer token'}, status=401)
+        token = auth.split(' ',1)[1]
+
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            user_id = payload.get('user_id')
+            role = payload.get('role','PATIENT')  # nếu payload không có role
+        except jwt.PyJWTError as e:
+            return Response({'error':'Invalid token','detail':str(e)}, status=401)
+
+        # forward query params
+        params = {'role': role, 'user_id': user_id}
         return forward_request(
             'GET',
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/",
-            params=request.query_params  # forward query params
+            params=params
         )
 
 class ProxyAppointmentDetail(APIView):
@@ -91,13 +131,33 @@ class ProxyAppointmentDetail(APIView):
             'GET',
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/"
         )
+
     def put(self, request, pk):
+        auth = request.headers.get('Authorization','')
+        if not auth.startswith('Bearer '):
+            return Response({'error':'Missing Bearer token'}, status=401)
+        token = auth.split(' ',1)[1]
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        except jwt.PyJWTError as e:
+            return Response({'error':'Invalid token','detail':str(e)}, status=401)
+
         return forward_request(
             'PUT',
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/",
             data=request.data
         )
+
     def delete(self, request, pk):
+        auth = request.headers.get('Authorization','')
+        if not auth.startswith('Bearer '):
+            return Response({'error':'Missing Bearer token'}, status=401)
+        token = auth.split(' ',1)[1]
+        try:
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        except jwt.PyJWTError as e:
+            return Response({'error':'Invalid token','detail':str(e)}, status=401)
+
         return forward_request(
             'DELETE',
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/"

@@ -16,6 +16,17 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
+User = get_user_model()
+
+class DoctorListView(APIView):
+    """
+    GET /api/users/doctors/
+    Trả về danh sách tất cả users có role == 'DOCTOR'
+    """
+    def get(self, request):
+        doctors = User.objects.filter(role='DOCTOR')
+        serializer = UserSerializer(doctors, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]

@@ -1,8 +1,35 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import doctorImg from '../assets/branch4.jpg'; // đặt ảnh phù hợp
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import doctorImg from '../assets/branch4.jpg';
+import { loginUser } from '../services/api';
 
 export function LoginPage() {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ username: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await loginUser({ username: form.username, password: form.password });
+      const { token, refresh } = res.data;
+      localStorage.setItem('token', token);
+      localStorage.setItem('refresh', refresh);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Đăng nhập thất bại');
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Left form */}
@@ -11,33 +38,46 @@ export function LoginPage() {
           <h2 className="text-3xl font-bold text-gray-900 mb-6">Sign in</h2>
           <p className="text-gray-500 mb-6">Enter your account details to enter our platform.</p>
 
-          <form className="space-y-4">
+          {error && <p className="text-red-600 mb-4">{error}</p>}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <label className="block text-sm font-medium text-gray-700">Username</label>
               <input
-                type="email"
+                name="username"
+                type="text"
+                value={form.username}
+                onChange={handleChange}
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                placeholder="you@example.com"
+                placeholder="username"
+                required
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700">Password</label>
               <input
+                name="password"
                 type="password"
+                value={form.password}
+                onChange={handleChange}
                 className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="********"
+                required
               />
             </div>
+
             <div className="flex justify-end">
               <Link to="/forgot" className="text-sm text-indigo-600 hover:underline">
                 Forgot password?
               </Link>
             </div>
+
             <button
               type="submit"
-              className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700"
+              disabled={loading}
+              className="w-full py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
             >
-              Login
+              {loading ? 'Signing in...' : 'Login'}
             </button>
           </form>
 
