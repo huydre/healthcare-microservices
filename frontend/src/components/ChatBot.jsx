@@ -4,7 +4,7 @@ import BotIconUrl from '../assets/icons/bot.svg';
 import UserIconUrl from '../assets/icons/user.svg';
 
 const GEMINI_API_URL = 'https://api.gemini.com/v1/chat/completions';
-const GEMINI_API_KEY = "AIzaSyBaZIGiYWoYL5HngCyWO8Cmn0uuBejDbUk";
+const GEMINI_API_KEY = "";
 
 export default function ChatBot() {
   const [open, setOpen] = useState(false);
