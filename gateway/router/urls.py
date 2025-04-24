@@ -1,7 +1,10 @@
 from django.urls import path
 from .views import *
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+
 
 urlpatterns = [
+    
     # User
     path('users/register/', ProxyRegister.as_view()),
     path('users/login/', ProxyLogin.as_view()),
@@ -43,6 +46,11 @@ urlpatterns = [
     # Notification
     path('notify/send/', ProxyNotifySend.as_view()),
     path('notify/', ProxyNotifyList.as_view()),
+
+
+
+    path('api/vr/diagnose/', ProxyVRDiagnose.as_view(), name='proxy-vr-diagnose'),
+
 ]
 
 

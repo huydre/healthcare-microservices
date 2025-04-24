@@ -6,5 +6,5 @@ COPY . .
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
-EXPOSE 8000
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8002"]
+EXPOSE 8010
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8010"]

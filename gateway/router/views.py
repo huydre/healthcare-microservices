@@ -2,13 +2,34 @@ import requests
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from urllib.parse import urlparse
+
 
 def forward_request(method, url, data=None, headers=None, params=None):
-    response = requests.request(method, url, json=data, headers=headers, params=params)
+    import requests
+    from rest_framework.response import Response
+
+    headers = headers or {}
+    parsed_url = urlparse(url)
+    host = parsed_url.hostname  # Chỉ lấy phần 'user_service', không có ':8001'
+
+    # ✅ Gán lại Host chính xác để không bị lỗi DisallowedHost
+    headers['Host'] = host
+
     try:
+        response = requests.request(
+            method=method,
+            url=url,
+            json=data,
+            headers=headers,
+            params=params,
+            timeout=10
+        )
         return Response(response.json(), status=response.status_code)
-    except:
-        return Response(response.text, status=response.status_code)
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        return Response({"error": str(e)}, status=500)
+
 
 # ---- USER SERVICE ----
 
@@ -41,19 +62,46 @@ class ProxyUserList(APIView):
 # ---- APPOINTMENT SERVICE ----
 
 class ProxyAppointmentCreate(APIView):
+    """
+    POST /api/appointments/create/
+    Body cần bao gồm field patient_id, doctor_id, scheduled_time, reason
+    """
     def post(self, request):
-        return forward_request('POST', f"{settings.APPOINTMENT_SERVICE}/api/appointments/create/", data=request.data, headers={'Authorization': request.headers.get('Authorization')})
+        # Không forward Authorization nữa
+        return forward_request(
+            'POST',
+            f"{settings.APPOINTMENT_SERVICE}/api/appointments/create/",
+            data=request.data
+        )
 
 class ProxyAppointmentList(APIView):
+    """
+    GET /api/appointments/?role=PATIENT&user_id=3  (hoặc DOCTOR)
+    """
     def get(self, request):
-        return forward_request('GET', f"{settings.APPOINTMENT_SERVICE}/api/appointments/", headers={'Authorization': request.headers.get('Authorization')})
+        return forward_request(
+            'GET',
+            f"{settings.APPOINTMENT_SERVICE}/api/appointments/",
+            params=request.query_params  # forward query params
+        )
 
 class ProxyAppointmentDetail(APIView):
+    def get(self, request, pk):
+        return forward_request(
+            'GET',
+            f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/"
+        )
     def put(self, request, pk):
-        return forward_request('PUT', f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/", data=request.data, headers={'Authorization': request.headers.get('Authorization')})
-
+        return forward_request(
+            'PUT',
+            f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/",
+            data=request.data
+        )
     def delete(self, request, pk):
-        return forward_request('DELETE', f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/", headers={'Authorization': request.headers.get('Authorization')})
+        return forward_request(
+            'DELETE',
+            f"{settings.APPOINTMENT_SERVICE}/api/appointments/{pk}/"
+        )
 
 
 # ---- CLINICAL SERVICE ----
@@ -134,3 +182,16 @@ class ProxyNotifySend(APIView):
 class ProxyNotifyList(APIView):
     def get(self, request):
         return forward_request('GET', f"{settings.NOTIFICATION_SERVICE}/api/notify/", headers={'Authorization': request.headers.get('Authorization')})
+
+
+# ---- VIRTUAL ROBOT SERVICE ----
+class ProxyVRDiagnose(APIView):
+    """
+    Proxy POST /api/vr/diagnose/ tới VirtualRobot Service
+    """
+    def post(self, request):
+        return forward_request(
+            'POST',
+            f"{settings.VIRTUALROBOT_SERVICE}/api/vr/diagnose/",
+            data=request.data
+        )

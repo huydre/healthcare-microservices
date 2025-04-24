@@ -1,37 +1,37 @@
 version: '3.9'
 
 services:
-  user_service:
+  userservice:  # ✅ Đổi từ user_service → userservice
     build: ./user_service
     ports:
       - "8001:8001"
-  
-  appointment_service:
+
+  appointmentservice:
     build: ./appointment_service
     ports:
       - "8002:8002"
-  
-  clinical_service:
+
+  clinicalservice:
     build: ./clinical_service
     ports:
       - "8003:8003"
 
-  pharmacy_service:
+  pharmacyservice:
     build: ./pharmacy_service
     ports:
       - "8004:8004"
 
-  lab_service:
+  labservice:
     build: ./lab_service
     ports:
       - "8005:8005"
 
-  insurance_service:
+  insuranceservice:
     build: ./insurance_service
     ports:
       - "8006:8006"
 
-  notification_service:
+  notificationservice:
     build: ./notification_service
     ports:
       - "8007:8007"
@@ -40,3 +40,8 @@ services:
     build: ./gateway
     ports:
       - "8000:8000"
+
+  virtualrobot:
+    build: ./virtualrobot_service
+    ports:
+      - "8010:8010"

@@ -23,7 +23,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = []
 
 USER_SERVICE = config('USER_SERVICE')
 APPOINTMENT_SERVICE = config('APPOINTMENT_SERVICE')
@@ -32,8 +31,10 @@ PHARMACY_SERVICE = config('PHARMACY_SERVICE')
 LAB_SERVICE = config('LAB_SERVICE')
 INSURANCE_SERVICE = config('INSURANCE_SERVICE')
 NOTIFICATION_SERVICE = config('NOTIFICATION_SERVICE')
+VIRTUALROBOT_SERVICE = config('VIRTUALROBOT_SERVICE')  # thêm biến .env: VIRTUALROBOT_SERVICE=http://virtualrobot:8010
 
 
+ALLOWED_HOSTS = ['*']
 
 APPEND_SLASH=False
 
@@ -46,6 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'drf_spectacular',
     'rest_framework',
     'router',
 ]
@@ -69,6 +71,16 @@ SIMPLE_JWT = {
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Healthcare API Gateway',
+    'DESCRIPTION': 'API docs for all microservices through Gateway',
+    'VERSION': '1.0.0',
 }
 
 ROOT_URLCONF = 'gateway.urls'
