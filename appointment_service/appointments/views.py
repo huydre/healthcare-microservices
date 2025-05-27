@@ -3,8 +3,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Appointment
 from .serializers import AppointmentSerializer
+import jwt
+from django.conf import settings
 
 def send_notification(user_id, message):
     import requests
@@ -55,31 +59,57 @@ class AppointmentCreateView(APIView):
 
 class AppointmentListView(APIView):
     """
-    GET /api/appointments/?role=PATIENT&user_id=3
+    GET /api/appointments/?role=PATIENT
     hoặc
-    GET /api/appointments/?role=DOCTOR&user_id=2
+    GET /api/appointments/?role=DOCTOR
+    
+    Header: Authorization: Bearer <your_token>
     """
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
     def get(self, request):
-        role = request.query_params.get('role')
-        user_id = request.query_params.get('user_id')
-        if not role or not user_id:
-            return Response(
-                {"error": "Phải cung cấp role và user_id"},
-                status=400
-            )
-
-        if role.upper() == 'PATIENT':
-            qs = Appointment.objects.filter(patient_id=user_id)
-        elif role.upper() == 'DOCTOR':
-            qs = Appointment.objects.filter(doctor_id=user_id)
-        else:
-            return Response(
-                {"error": "Role phải là PATIENT hoặc DOCTOR"},
-                status=400
-            )
-
-        serializer = AppointmentSerializer(qs, many=True)
-        return Response(serializer.data)
+        # Lấy token từ header
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if not auth_header.startswith('Bearer '):
+            return Response({"error": "Bearer token is required"}, status=401)
+        
+        token = auth_header.split(' ')[1]
+        
+        try:
+            # Decode token để lấy thông tin người dùng
+            # Sử dụng SECRET_KEY từ settings để verify token
+            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+            user_id = payload.get('user_id')
+            
+            if not user_id:
+                return Response({"error": "Token không hợp lệ hoặc không chứa user_id"}, status=401)
+            
+            # Lấy role từ query params
+            role = request.query_params.get('role')
+            if not role:
+                return Response({"error": "Phải cung cấp role trong query params"}, status=400)
+            
+            # Lọc lịch hẹn dựa trên role và user_id từ token
+            if role.upper() == 'PATIENT':
+                qs = Appointment.objects.filter(patient_id=user_id)
+            elif role.upper() == 'DOCTOR':
+                qs = Appointment.objects.filter(doctor_id=user_id)
+            else:
+                return Response(
+                    {"error": "Role phải là PATIENT hoặc DOCTOR"},
+                    status=400
+                )
+            
+            serializer = AppointmentSerializer(qs, many=True)
+            return Response(serializer.data)
+            
+        except jwt.ExpiredSignatureError:
+            return Response({"error": "Token đã hết hạn"}, status=401)
+        except jwt.InvalidTokenError:
+            return Response({"error": "Token không hợp lệ"}, status=401)
+        except Exception as e:
+            return Response({"error": f"Lỗi xác thực: {str(e)}"}, status=500)
 
 
 class AppointmentDetailView(APIView):

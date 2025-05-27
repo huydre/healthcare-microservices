@@ -8,5 +8,6 @@ urlpatterns = [
     path('change-password/', ChangePasswordView.as_view()),
     path('all/', UserListView.as_view()),  # chỉ Admin dùng
     path('delete/', DeleteAccountView.as_view()),
-    path('doctors/', DoctorListView.as_view(), name='user-doctors'),
+    path('doctors/create/', DoctorCreateView.as_view(), name='doctor-create'),
+    path('doctors/', DoctorListView.as_view(), name='doctor-list'),
 ]

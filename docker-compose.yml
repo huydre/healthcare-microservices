@@ -45,3 +45,8 @@ services:
     build: ./virtualrobot_service
     ports:
       - "8010:8010"
+
+  chatbot_service:
+    build: ./chatbot_service
+    ports:
+      - "8020:8020"  

@@ -1,13 +1,19 @@
 // src/pages/RegisterPage.jsx
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import api, { registerUser } from '../services/api';
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
+    username: '',
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    role: 'PATIENT' // Default role
   });
   const [errors, setErrors] = useState({});
 
@@ -19,27 +25,88 @@ export default function RegisterPage() {
   const validate = () => {
     const errs = {};
     if (!formData.fullName) errs.fullName = 'Full Name is required';
+    if (!formData.username) errs.username = 'Username is required';
     if (!formData.email) errs.email = 'Email is required';
+    if (!formData.email.includes('@')) errs.email = 'Enter a valid email address';
     if (!formData.password) errs.password = 'Password is required';
+    if (formData.password.length < 6) errs.password = 'Password must be at least 6 characters';
     if (formData.password !== formData.confirmPassword) errs.confirmPassword = 'Passwords do not match';
+    if (!formData.role) errs.role = 'Role is required';
     return errs;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    // TODO: gửi dữ liệu lên API
-    console.log('Register data:', formData);
+
+    setLoading(true);
+    try {
+      // Prepare data for API
+      const apiData = {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+        first_name: formData.fullName.split(' ')[0] || '',
+        last_name: formData.fullName.split(' ').slice(1).join(' ') || ''
+      };
+
+      // Send registration request
+      const response = await registerUser(apiData);
+      if (response.status !== 201 || response.status !== 200) {
+        throw new Error('Registration failed');
+      }
+      
+      console.log('Registration successful:', response.data);
+      
+      // Redirect to login page
+      navigate('/login', { 
+        state: { message: 'Registration successful! Please log in with your new account.' } 
+      });
+    } catch (error) {
+      console.error('Registration failed:', error);
+      
+      // Handle API error responses
+      if (error.response && error.response.data) {
+        const apiErrors = {};
+        const errorData = error.response.data;
+        
+        // Map API errors to form fields
+        if (errorData.username) apiErrors.username = errorData.username[0];
+        if (errorData.email) apiErrors.email = errorData.email[0];
+        if (errorData.password) apiErrors.password = errorData.password[0];
+        
+        setErrors({
+          ...validationErrors,
+          ...apiErrors,
+          api: 'Registration failed. Please check your information and try again.'
+        });
+      } else {
+        setErrors({
+          ...validationErrors,
+          api: 'Network error. Please try again later.'
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow">
         <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">Create an Account</h2>
+        
+        {errors.api && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+            {errors.api}
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Full Name</label>
@@ -51,6 +118,18 @@ export default function RegisterPage() {
               placeholder="John Doe"
             />
             {errors.fullName && <p className="text-sm text-red-600 mt-1">{errors.fullName}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Username</label>
+            <input
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+              placeholder="johndoe"
+            />
+            {errors.username && <p className="text-sm text-red-600 mt-1">{errors.username}</p>}
           </div>
 
           <div>
@@ -92,11 +171,38 @@ export default function RegisterPage() {
             {errors.confirmPassword && <p className="text-sm text-red-600 mt-1">{errors.confirmPassword}</p>}
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Role</label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleChange}
+              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="PATIENT">Patient</option>
+              <option value="DOCTOR">Doctor</option>
+              <option value="NURSE">Nurse</option>
+              <option value="PHARMACIST">Pharmacist</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+            {errors.role && <p className="text-sm text-red-600 mt-1">{errors.role}</p>}
+          </div>
+
+          {/* Thêm thông tin chuyên biệt cho role DOCTOR */}
+          {formData.role === 'DOCTOR' && (
+            <div className="p-3 border border-gray-200 rounded-lg space-y-3 bg-gray-50">
+              <p className="text-sm font-medium text-gray-700">
+                Doctor information will be collected after registration during profile setup.
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
-            className="w-full py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
+            disabled={loading}
+            className={`w-full py-3 ${loading ? 'bg-green-400' : 'bg-green-600 hover:bg-green-700'} text-white font-semibold rounded-lg transition`}
           >
-            Sign Up
+            {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
 

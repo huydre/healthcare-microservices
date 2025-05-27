@@ -52,6 +52,9 @@ urlpatterns = [
 
     path('vr/diagnose/', ProxyVRDiagnose.as_view()),
 
+    path('chatbot/respond/', ProxyChatbotRespond.as_view()),
+
+
 ]
 
 

@@ -5,6 +5,7 @@ from rest_framework import status
 from .serializers import *
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 User = get_user_model()
 
@@ -18,24 +19,37 @@ def get_tokens_for_user(user):
 
 User = get_user_model()
 
+class DoctorCreateView(APIView):
+    permission_classes = [AllowAny]  # hoặc chỉ Admin
+
+    def post(self, request):
+        serializer = DoctorRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(DoctorDetailSerializer(user).data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class DoctorListView(APIView):
-    """
-    GET /api/users/doctors/
-    Trả về danh sách tất cả users có role == 'DOCTOR'
-    """
     def get(self, request):
         doctors = User.objects.filter(role='DOCTOR')
-        serializer = UserSerializer(doctors, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = DoctorDetailSerializer(doctors, many=True)
+        return Response(serializer.data)
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # cho phép file upload
 
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        serializer = RegisterSerializer(
+            data=request.data,
+            context={'request': request}  # để build avatar_url
+        )
         if serializer.is_valid():
             user = serializer.save()
-            return Response({'message': 'Đăng ký thành công'}, status=201)
+            return Response(
+                UserSerializer(user, context={'request': request}).data,
+                status=201
+            )
         return Response(serializer.errors, status=400)
 
 

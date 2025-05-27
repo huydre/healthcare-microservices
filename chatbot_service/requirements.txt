@@ -1,0 +1,9 @@
+Django==5.2
+djangorestframework==3.16.0
+tensorflow
+numpy
+pandas
+scikit-learn
+lime
+matplotlib
+django-cors-headers

@@ -255,3 +255,13 @@ class ProxyVRDiagnose(APIView):
             f"{settings.VIRTUALROBOT_SERVICE}/api/vr/diagnose/",
             data=request.data
         )
+    
+
+
+class ProxyChatbotRespond(APIView):
+    def post(self, request):
+        return forward_request(
+            'POST',
+            f"{settings.CHATBOT_SERVICE}/api/chatbot/respond/",
+            data=request.data,
+        )

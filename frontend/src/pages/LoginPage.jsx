@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import doctorImg from '../assets/branch4.jpg';
 import { loginUser } from '../services/api';
+import api from '../services/api';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -19,10 +20,7 @@ export function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await loginUser({ username: form.username, password: form.password });
-      const { token, refresh } = res.data;
-      localStorage.setItem('token', token);
-      localStorage.setItem('refresh', refresh);
+      const res = await loginUser(form);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.detail || 'Đăng nhập thất bại');
