@@ -197,9 +197,11 @@ class AppointmentListView(APIView):
             user = request.user
             user_id = user.id
             
-            print(f"Debug - Authenticated user_id: {user_id}")
-            print(f"Debug - User role: {getattr(user, 'role', 'N/A')}")
-            print(f"Debug - User email: {getattr(user, 'email', 'N/A')}")
+            print(f"🔍 Debug - Authenticated user_id: {user_id}")
+            print(f"🔍 Debug - User role: {getattr(user, 'role', 'N/A')}")
+            print(f"🔍 Debug - User email: {getattr(user, 'email', 'N/A')}")
+            print(f"🔍 Debug - Request params: {request.query_params}")
+            print(f"🔍 Debug - Auth header: {request.headers.get('Authorization', 'No auth header')}")
             
             # Lấy role từ query params hoặc từ user object
             role = request.query_params.get('role')
@@ -207,40 +209,53 @@ class AppointmentListView(APIView):
                 # Fallback to user role from token
                 role = getattr(user, 'role', 'PATIENT')
             
+            print(f"🔍 Debug - Using role: {role}")
+            
             # Lọc theo trạng thái nếu có
             status_filter = request.query_params.get('status')
             date_filter = request.query_params.get('date')
             
             # Base queryset
             qs = Appointment.objects.all()
+            print(f"🔍 Debug - Total appointments in DB: {qs.count()}")
             
             # Lọc lịch hẹn dựa trên role và user_id từ token
             if role.upper() == 'PATIENT':
                 qs = qs.filter(patient_id=user_id)
+                print(f"🔍 Debug - Filtering by patient_id={user_id}")
             elif role.upper() == 'DOCTOR':
                 qs = qs.filter(doctor_id=user_id)
+                print(f"🔍 Debug - Filtering by doctor_id={user_id}")
             else:
                 return Response(
                     {"error": "Role phải là PATIENT hoặc DOCTOR"},
                     status=400
                 )
             
+            print(f"🔍 Debug - After role filtering: {qs.count()}")
+            
             # Lọc theo status nếu có
             if status_filter:
                 qs = qs.filter(status=status_filter.upper())
+                print(f"🔍 Debug - After status filtering: {qs.count()}")
             
             # Lọc theo ngày nếu có
             if date_filter:
                 try:
                     date_obj = datetime.datetime.strptime(date_filter, '%Y-%m-%d').date()
                     qs = qs.filter(scheduled_time__date=date_obj)
+                    print(f"🔍 Debug - After date filtering: {qs.count()}")
                 except ValueError:
                     return Response({"error": "Định dạng ngày không hợp lệ (YYYY-MM-DD)"}, status=400)
             
             # Sắp xếp theo thời gian
             qs = qs.order_by('scheduled_time')
             
-            print(f"Debug - Final queryset count: {qs.count()}")
+            print(f"🔍 Debug - Final queryset count: {qs.count()}")
+            
+            # Debug: In ra vài appointment đầu tiên
+            for apt in qs[:3]:
+                print(f"🔍 Debug - Appointment {apt.id}: patient_id={apt.patient_id}, doctor_id={apt.doctor_id}")
             
             serializer = AppointmentSerializer(qs, many=True)
             return Response(serializer.data)

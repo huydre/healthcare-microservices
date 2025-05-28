@@ -88,6 +88,10 @@ class PatientProfile(BaseProfile):
     emergency_contact = models.CharField(max_length=100, blank=True)
     insurance_provider = models.CharField(max_length=100, blank=True)
     insurance_code = models.CharField(max_length=30, blank=True)
+    
+    # Additional medical fields
+    allergies = models.TextField(blank=True, help_text="Known allergies")
+    medical_conditions = models.TextField(blank=True, help_text="Current medical conditions")
 
     def __str__(self):
         return f"PatientProfile: {self.user.username}"

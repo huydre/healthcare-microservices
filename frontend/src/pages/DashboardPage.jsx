@@ -22,6 +22,7 @@ export default function DashboardPage() {
   const [userData, setUserData] = useState(null)
   const [userRole, setUserRole] = useState('PATIENT')
   const [dashboardStats, setDashboardStats] = useState(null)
+  const [appointmentStats, setAppointmentStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -49,8 +50,25 @@ export default function DashboardPage() {
 
   const fetchDashboardStats = async () => {
     try {
-      const response = await getDashboardStats()
-      setDashboardStats(response.data)
+      const userId = localStorage.getItem('user_id')
+      const userType = userRole.toLowerCase()
+
+      // Fetch stats from both services
+      const [userStatsResponse, appointmentStatsResponse] = await Promise.allSettled([
+        getDashboardStats(),
+        userId && (userType === 'doctor' || userType === 'patient') 
+          ? getAppointmentStats(userType, userId)
+          : Promise.resolve({ data: {} })
+      ])
+
+      // Combine stats from both services
+      const userStats = userStatsResponse.status === 'fulfilled' ? userStatsResponse.value.data : {}
+      const appointmentStats = appointmentStatsResponse.status === 'fulfilled' ? appointmentStatsResponse.value.data : {}
+
+      const combinedStats = { ...userStats, ...appointmentStats }
+      
+      setDashboardStats(combinedStats)
+      setAppointmentStats(appointmentStats)
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)
       // Use fallback data if API fails
@@ -113,10 +131,16 @@ export default function DashboardPage() {
     if (!dashboardStats) return []
 
     if (userRole === 'DOCTOR') {
+      // Use appointment service data when available, fallback to user service data
+      const totalPatients = appointmentStats?.total_patients ?? dashboardStats.total_patients ?? 0
+      const todaysAppointments = appointmentStats?.todays_appointments ?? dashboardStats.todays_appointments ?? 0
+      const pendingReports = appointmentStats?.pending_reports ?? dashboardStats.pending_reports ?? 0
+      const successRate = appointmentStats?.success_rate ?? dashboardStats.success_rate ?? 0
+
       return [
         {
           title: 'Total Patients',
-          value: dashboardStats.total_patients?.toString() || '0',
+          value: totalPatients.toString(),
           change: '+12%',
           changeType: 'increase',
           icon: UserGroupIcon,
@@ -124,7 +148,7 @@ export default function DashboardPage() {
         },
         {
           title: 'Today\'s Appointments',
-          value: dashboardStats.todays_appointments?.toString() || '0',
+          value: todaysAppointments.toString(),
           change: '+3',
           changeType: 'increase',
           icon: CalendarDaysIcon,
@@ -132,7 +156,7 @@ export default function DashboardPage() {
         },
         {
           title: 'Pending Reports',
-          value: dashboardStats.pending_reports?.toString() || '0',
+          value: pendingReports.toString(),
           change: '-2',
           changeType: 'decrease',
           icon: ClockIcon,
@@ -140,7 +164,7 @@ export default function DashboardPage() {
         },
         {
           title: 'Success Rate',
-          value: `${dashboardStats.success_rate?.toString() || '0'}%`,
+          value: `${successRate}%`,
           change: '+2.1%',
           changeType: 'increase',
           icon: ArrowTrendingUpIcon,
@@ -148,10 +172,16 @@ export default function DashboardPage() {
         }
       ]
     } else if (userRole === 'PATIENT') {
+      // Use appointment service data when available, fallback to user service data
+      const upcomingAppointments = appointmentStats?.upcoming_appointments ?? dashboardStats.upcoming_appointments ?? 0
+      const completedAppointments = appointmentStats?.completed_appointments ?? dashboardStats.completed_appointments ?? 0
+      const totalAppointments = appointmentStats?.total_appointments ?? dashboardStats.total_appointments ?? 0
+      const healthScore = dashboardStats.health_score ?? 85
+
       return [
         {
           title: 'Upcoming Appointments',
-          value: dashboardStats.upcoming_appointments?.toString() || '0',
+          value: upcomingAppointments.toString(),
           change: '+1',
           changeType: 'increase',
           icon: CalendarDaysIcon,
@@ -159,23 +189,23 @@ export default function DashboardPage() {
         },
         {
           title: 'Completed Visits',
-          value: dashboardStats.completed_appointments?.toString() || '0',
+          value: completedAppointments.toString(),
           change: '+2',
           changeType: 'increase',
           icon: ArrowTrendingUpIcon,
           color: 'green'
         },
         {
-          title: 'Medical Records',
-          value: dashboardStats.medical_records?.toString() || '0',
-          change: '+1',
+          title: 'Total Appointments',
+          value: totalAppointments.toString(),
+          change: '+3',
           changeType: 'increase',
           icon: ClockIcon,
           color: 'yellow'
         },
         {
           title: 'Health Score',
-          value: `${dashboardStats.health_score?.toString() || '0'}%`,
+          value: `${healthScore}%`,
           change: '+3.2%',
           changeType: 'increase',
           icon: HeartIcon,

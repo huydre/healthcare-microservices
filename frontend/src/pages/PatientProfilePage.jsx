@@ -17,13 +17,14 @@ import {
   XMarkIcon,
   CameraIcon
 } from '@heroicons/react/24/outline'
-import { getProfile, updateProfile } from '../services/api'
+import { getProfile, updateProfile, uploadAvatar } from '../services/api'
 
 export default function PatientProfilePage() {
   const navigate = useNavigate()
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [userData, setUserData] = useState({
     first_name: '',
     last_name: '',
@@ -81,6 +82,46 @@ export default function PatientProfilePage() {
       alert('Failed to update profile. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a valid image file (JPEG, PNG, or GIF)')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      alert('File size must be less than 5MB')
+      return
+    }
+
+    try {
+      setUploadingAvatar(true)
+      const formData = new FormData()
+      formData.append('avatar', file)
+
+      const response = await uploadAvatar(formData)
+      
+      // Update user data with new avatar
+      setUserData(response.data.user)
+      
+      // Update localStorage
+      localStorage.setItem('user_data', JSON.stringify(response.data.user))
+      
+      alert('Avatar updated successfully!')
+    } catch (error) {
+      console.error('Error uploading avatar:', error)
+      alert('Failed to upload avatar. Please try again.')
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -227,15 +268,32 @@ export default function PatientProfilePage() {
                   <div className="text-center">
                     <div className="relative inline-block">
                       <img
-                        src={`https://i.pravatar.cc/150?u=${userData.email || 'user'}`}
+                        src={
+                          userData.avatar_url || 
+                          userData.avatar || 
+                          `https://i.pravatar.cc/150?u=${userData.email || 'user'}`
+                        }
                         alt="Profile"
-                        className="w-24 h-24 rounded-full border-4 border-gray-200 mx-auto"
+                        className="w-24 h-24 rounded-full border-4 border-gray-200 mx-auto object-cover"
                       />
-                      {isEditing && (
-                        <button className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors duration-200">
+                      <input
+                        type="file"
+                        id="avatar-upload"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        className="hidden"
+                      />
+                      <button 
+                        onClick={() => document.getElementById('avatar-upload').click()}
+                        disabled={uploadingAvatar}
+                        className="absolute bottom-0 right-0 p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+                      >
+                        {uploadingAvatar ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
                           <CameraIcon className="h-4 w-4" />
-                        </button>
-                      )}
+                        )}
+                      </button>
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 mt-4">
                       {userData.first_name} {userData.last_name}

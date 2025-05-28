@@ -9,6 +9,7 @@ urlpatterns = [
     path('users/register/', ProxyRegister.as_view()),
     path('users/login/', ProxyLogin.as_view()),
     path('users/me/', ProxyUserMe.as_view()),
+    path('users/me/upload-avatar/', ProxyUserAvatar.as_view()),
     path('users/all/', ProxyUserList.as_view()),
     path('doctors/', ProxyUserDoctors.as_view()),
 

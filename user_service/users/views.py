@@ -14,9 +14,18 @@ User = get_user_model()
 
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
+    
+    # Add custom claims to access token
+    access = refresh.access_token
+    access['role'] = user.role
+    access['username'] = user.username
+    access['email'] = user.email
+    access['first_name'] = user.first_name
+    access['last_name'] = user.last_name
+    
     return {
         'refresh': str(refresh),
-        'access': str(refresh.access_token),
+        'access': str(access),
     }
 
 User = get_user_model()
@@ -83,6 +92,58 @@ class ProfileView(APIView):
             serializer.save()
             return Response({'message': 'Cập nhật thành công'})
         return Response(serializer.errors, status=400)
+
+
+class AvatarUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        """Upload user avatar"""
+        try:
+            if 'avatar' not in request.FILES:
+                return Response({'error': 'No avatar file provided'}, status=400)
+            
+            avatar_file = request.FILES['avatar']
+            
+            # Validate file type
+            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif']
+            if avatar_file.content_type not in allowed_types:
+                return Response({
+                    'error': 'Invalid file type. Only JPEG, PNG, and GIF are allowed.'
+                }, status=400)
+            
+            # Validate file size (max 5MB)
+            max_size = 5 * 1024 * 1024  # 5MB
+            if avatar_file.size > max_size:
+                return Response({
+                    'error': 'File too large. Maximum size is 5MB.'
+                }, status=400)
+            
+            # Delete old avatar if exists
+            if request.user.avatar and request.user.avatar.name:
+                try:
+                    import os
+                    if os.path.isfile(request.user.avatar.path):
+                        os.remove(request.user.avatar.path)
+                except Exception as e:
+                    print(f"Error deleting old avatar: {e}")
+            
+            # Save new avatar
+            request.user.avatar = avatar_file
+            request.user.save()
+            
+            # Return updated user data
+            serializer = UserSerializer(request.user, context={'request': request})
+            return Response({
+                'message': 'Avatar uploaded successfully',
+                'user': serializer.data,
+                'avatar_url': request.user.avatar.url if request.user.avatar else None
+            })
+            
+        except Exception as e:
+            return Response({
+                'error': f'Upload failed: {str(e)}'
+            }, status=500)
 
 
 class ChangePasswordView(APIView):

@@ -62,8 +62,24 @@ class AppointmentSerializer(serializers.ModelSerializer):
         doctor_id = data.get('doctor_id')
         scheduled_time = data.get('scheduled_time')
         
+        # Nếu đây là partial update, lấy giá trị từ instance hiện tại nếu không có trong data
+        if self.instance:
+            if not doctor_id:
+                doctor_id = self.instance.doctor_id
+            if not scheduled_time:
+                scheduled_time = self.instance.scheduled_time
+        
+        # Chỉ validate scheduled_time nếu nó được cung cấp (cho phép partial update)
         if not scheduled_time:
-            raise serializers.ValidationError("Thời gian đặt lịch là bắt buộc")
+            # Chỉ yêu cầu scheduled_time khi tạo mới
+            if not self.instance:
+                raise serializers.ValidationError("Thời gian đặt lịch là bắt buộc")
+            else:
+                return data
+        
+        # Nếu chỉ update status, không cần validate time
+        if self.instance and 'scheduled_time' not in data and 'doctor_id' not in data:
+            return data
         
         # Ensure scheduled_time is timezone-aware
         if scheduled_time.tzinfo is None:

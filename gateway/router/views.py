@@ -1,15 +1,12 @@
 import requests
+import jwt
 from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from urllib.parse import urlparse
-import jwt
-
 
 
 def forward_request(method, url, data=None, headers=None, params=None):
-    import requests
-    from rest_framework.response import Response
 
     headers = headers or {}
     parsed_url = urlparse(url)
@@ -52,6 +49,33 @@ class ProxyUserMe(APIView):
 
     def delete(self, request):
         return forward_request('DELETE', f"{settings.USER_SERVICE}/api/users/delete/", headers={'Authorization': request.headers.get('Authorization')})
+
+class ProxyUserAvatar(APIView):
+    def post(self, request):
+        """Proxy avatar upload to user service"""
+        import requests
+        from django.http import FileResponse
+        
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return Response({'error': 'Authorization header required'}, status=401)
+            
+        # Prepare the file upload
+        files = {}
+        if 'avatar' in request.FILES:
+            avatar_file = request.FILES['avatar']
+            files['avatar'] = (avatar_file.name, avatar_file.read(), avatar_file.content_type)
+        
+        try:
+            response = requests.post(
+                f"{settings.USER_SERVICE}/api/users/me/upload-avatar/",
+                files=files,
+                headers={'Authorization': auth_header},
+                timeout=30
+            )
+            return Response(response.json(), status=response.status_code)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
 
 class ProxyUserList(APIView):
     def get(self, request):
@@ -125,6 +149,11 @@ class ProxyAppointmentList(APIView):
             params['role'] = role
             
         return forward_request(
+            'GET',
+            f"{settings.APPOINTMENT_SERVICE}/api/appointments/",
+            params=params,
+            headers={'Authorization': auth}  # Forward Authorization header
+        )
             'GET',
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/",
             params=params,

@@ -14,7 +14,7 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
-import { getRecentAppointments } from '../services/api'
+import { getAppointments } from '../services/api'
 
 export default function Appointments() {
   const [appointments, setAppointments] = useState([])
@@ -23,18 +23,39 @@ export default function Appointments() {
 
   useEffect(() => {
     fetchAppointments()
-  }, [])
+  }, [filter]) // Re-fetch when filter changes
 
   const fetchAppointments = async () => {
     try {
       setLoading(true)
-      const response = await getRecentAppointments(6)
+      
+      // Get user info for the API call
+      const userRole = localStorage.getItem('user_role')
+      
+      let params = {}
+      if (userRole) {
+        params.role = userRole
+      }
+      
+      // Add filter params
+      if (filter === 'today') {
+        const today = new Date().toISOString().split('T')[0]
+        params.date = today
+      } else if (filter === 'upcoming') {
+        params.status = 'PENDING,CONFIRMED'
+      }
+      
+      const response = await getAppointments(params)
+      
       if (response.data && Array.isArray(response.data)) {
-        setAppointments(response.data)
+        // Sort by scheduled_time and take first 6
+        const sortedAppointments = response.data
+          .sort((a, b) => new Date(a.scheduled_time) - new Date(b.scheduled_time))
+          .slice(0, 6)
+        setAppointments(sortedAppointments)
       } else {
-        // If API returns different structure, try to extract appointments
-        const appointments = response.data?.appointments || response.data?.results || []
-        setAppointments(Array.isArray(appointments) ? appointments.slice(0, 6) : [])
+        console.error('Unexpected API response format:', response.data)
+        setAppointments([])
       }
     } catch (error) {
       console.error('Error fetching appointments:', error)

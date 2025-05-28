@@ -93,6 +93,13 @@ export const getProfile = () =>
 export const updateProfile = (userData) =>
   api.put('/users/me/', userData);
 
+export const uploadAvatar = (formData) =>
+  api.post('/users/me/upload-avatar/', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+
 export const getDashboardStats = () =>
   api.get('/users/dashboard-stats/');
 
