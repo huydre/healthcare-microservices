@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import doctorImg from '../assets/branch4.jpg';
-import { loginUser } from '../services/api';
-import api from '../services/api';
+import { loginUser, getProfile } from '../services/api';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -19,13 +18,38 @@ export function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
     try {
-      const res = await loginUser(form);
-      navigate('/dashboard');
+      // Step 1: Login and get tokens
+      const loginResponse = await loginUser(form);
+      console.log('Login successful:', loginResponse);
+      
+      // Step 2: Get user profile to determine role
+      const profileResponse = await getProfile();
+      const user = profileResponse.data;
+      console.log('User profile:', user);
+      
+      // Step 3: Store user info in localStorage for quick access
+      localStorage.setItem('user_id', user.id);
+      localStorage.setItem('user_role', user.role);
+      localStorage.setItem('user_data', JSON.stringify(user));
+      
+      // Step 4: Navigate based on role
+      if (user.role === 'DOCTOR') {
+        navigate('/doctor/dashboard');
+      } else if (user.role === 'PATIENT') {
+        navigate('/dashboard');
+      } else {
+        // For other roles (NURSE, PHARMACIST, ADMIN), navigate to general dashboard
+        navigate('/dashboard');
+      }
+      
     } catch (err) {
-      setError(err.response?.data?.detail || 'Đăng nhập thất bại');
+      console.error('Login error:', err);
+      setError(err.response?.data?.detail || err.response?.data?.error || 'Đăng nhập thất bại');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (

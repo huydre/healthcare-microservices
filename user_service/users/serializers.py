@@ -30,13 +30,14 @@ class ChangePasswordSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     # field trả ra avatar URL
     avatar_url = serializers.SerializerMethodField()
+    profile_data = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         # bao gồm avatar để write, avatar_url để read
         fields = [
-            'id','username','full_name','email','phone_number',
-            'gender','role','avatar','avatar_url'
+            'id','username','first_name','last_name','full_name','email','phone_number',
+            'gender','role','avatar','avatar_url','profile_data','date_joined','last_updated'
         ]
         extra_kwargs = {
             'avatar': {'write_only': True, 'required': False},
@@ -48,6 +49,52 @@ class UserSerializer(serializers.ModelSerializer):
             url = obj.avatar.url  # /media/avatars/...
             # trả về full absolute URL nếu cần:
             return request.build_absolute_uri(url)
+        return None
+
+    def get_profile_data(self, obj):
+        """Get role-specific profile data"""
+        try:
+            if obj.role == 'PATIENT':
+                profile = obj.patientprofile
+                return {
+                    'date_of_birth': profile.date_of_birth,
+                    'address': profile.address,
+                    'blood_type': profile.blood_type,
+                    'emergency_contact': profile.emergency_contact,
+                    'insurance_provider': profile.insurance_provider,
+                    'insurance_code': profile.insurance_code,
+                }
+            elif obj.role == 'DOCTOR':
+                profile = obj.doctorprofile
+                return {
+                    'specialty': profile.specialty,
+                    'bio': profile.bio,
+                    'years_experience': profile.years_experience,
+                    'practice_certificate': profile.practice_certificate,
+                    'clinic_address': profile.clinic_address,
+                }
+            elif obj.role == 'NURSE':
+                profile = obj.nurseprofile
+                return {
+                    'department': profile.department,
+                    'shift': profile.shift,
+                }
+            elif obj.role == 'PHARMACIST':
+                profile = obj.pharmacistprofile
+                return {
+                    'pharmacy_name': profile.pharmacy_name,
+                    'license_number': profile.license_number,
+                    'working_hours': profile.working_hours,
+                }
+            elif obj.role == 'ADMIN':
+                profile = obj.adminprofile
+                return {
+                    'admin_code': profile.admin_code,
+                    'department': profile.department,
+                    'full_control': profile.full_control,
+                }
+        except:
+            pass
         return None
 
 # Serializer for detailed doctor info, includes profile

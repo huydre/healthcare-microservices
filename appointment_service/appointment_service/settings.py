@@ -23,7 +23,7 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-
+USER_SERVICE = "http://userservice:8001"
 
 ALLOWED_HOSTS = ['*']
 
@@ -126,11 +126,13 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
+# Timezone settings
 USE_TZ = True
+TIME_ZONE = 'UTC'  # hoặc 'Asia/Ho_Chi_Minh' nếu bạn ở Việt Nam
+
+# Ensure these are set
+USE_I18N = True
+USE_L10N = True
 
 
 # Static files (CSS, JavaScript, Images)

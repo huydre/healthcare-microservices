@@ -77,10 +77,10 @@ api.interceptors.response.use(
 export const loginUser = (credentials) =>
   api.post('/users/login/', credentials)
      .then(res => {
-       const { token, refresh } = res.data;
-       localStorage.setItem('token', res.data.token.access);
-       localStorage.setItem('refresh', res.data.token.refresh);
-       api.defaults.headers.Authorization = `Bearer ${token}`;
+       const { token } = res.data;
+       localStorage.setItem('token', token.access);
+       localStorage.setItem('refresh', token.refresh);
+       api.defaults.headers.Authorization = `Bearer ${token.access}`;
        return res.data;
      });
 
@@ -90,10 +90,49 @@ export const registerUser = (userData) =>
 export const getProfile = () =>
   api.get('/users/me/');
 
+export const updateProfile = (userData) =>
+  api.put('/users/me/', userData);
+
+export const getDashboardStats = () =>
+  api.get('/users/dashboard-stats/');
+
+export const getAppointmentStats = (userType, userId) => {
+  if (userType === 'doctor') {
+    return api.get(`/appointments/stats/doctor/${userId}/`);
+  } else if (userType === 'patient') {
+    return api.get(`/appointments/stats/patient/${userId}/`);
+  } else {
+    return Promise.reject(new Error('Invalid user type'));
+  }
+};
+
+export const getAppointments = (params = {}) =>
+  api.get('/appointments/', { params });
+
+export const getRecentAppointments = (userType, userId, limit = 10) => {
+  // If no userType/userId provided, try to get from localStorage
+  if (!userType || !userId) {
+    const userRole = localStorage.getItem('user_role');
+    const userIdFromStorage = localStorage.getItem('user_id');
+    
+    if (userRole && userIdFromStorage) {
+      userType = userRole.toLowerCase() === 'doctor' ? 'doctor' : 'patient';
+      userId = userIdFromStorage;
+    } else {
+      // Fallback to old endpoint
+      return api.get(`/appointments/recent/?limit=${limit}`);
+    }
+  }
+  
+  return api.get(`/appointments/recent/${userType}/${userId}/?limit=${limit}`);
+};
+
 export const logoutUser = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('refresh');
   localStorage.removeItem('user_id');
+  localStorage.removeItem('user_role');
+  localStorage.removeItem('user_data');
   delete api.defaults.headers.Authorization;
   window.location.href = '/login';
 };

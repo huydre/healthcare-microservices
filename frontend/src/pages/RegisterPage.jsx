@@ -57,7 +57,7 @@ export default function RegisterPage() {
 
       // Send registration request
       const response = await registerUser(apiData);
-      if (response.status !== 201 || response.status !== 200) {
+      if (response.status !== 201) {
         throw new Error('Registration failed');
       }
       

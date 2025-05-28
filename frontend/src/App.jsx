@@ -6,6 +6,9 @@ import RegisterPage from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
 import AppointmentPage from "./pages/ApointmanetPage";
 import VirtualRobot from "./components/VirtualRobot";
+import DoctorPage from "./pages/DoctorPage";
+import DoctorDashboardPage from "./pages/DoctorDashboardPage";
+import PatientProfilePage from "./pages/PatientProfilePage";
 
 function App() {
   return (
@@ -17,8 +20,12 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/profile" element={<PatientProfilePage />} />
         <Route path="/appointments" element={<AppointmentPage/>} />
         <Route path="/vr" element={<VirtualRobot/>} />
+        <Route path="/dashboard/vr" element={<VirtualRobot/>} />
+        <Route path="/doctor" element={<DoctorPage />} />
+        <Route path="/doctor/dashboard" element={<DoctorDashboardPage />} />
       </Routes>
     </>
   );

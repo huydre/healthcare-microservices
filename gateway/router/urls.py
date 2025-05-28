@@ -17,6 +17,14 @@ urlpatterns = [
     path('appointments/create/', ProxyAppointmentCreate.as_view()),
     path('appointments/', ProxyAppointmentList.as_view()),
     path('appointments/<int:pk>/', ProxyAppointmentDetail.as_view()),
+    path('appointments/schedules/', ProxyDoctorSchedule.as_view()),
+    path('appointments/available-slots/', ProxyAvailableSlots.as_view()),
+    path('appointments/daily-availability/', ProxyDailyAvailability.as_view()),
+    path('appointments/calendar-density/', ProxyCalendarDensity.as_view()),
+    path('appointments/departments/', ProxyDepartmentList.as_view()),
+    path('appointments/token-debug/', ProxyTokenDebug.as_view()),
+    path('appointments/internal/', ProxyInternalAppointmentList.as_view()),
+    path('appointments/patient-calendar/', ProxyPatientCalendar.as_view()),  # Thêm dòng này
 
     # Clinical
     path('records/', ProxyMedicalRecordList.as_view()),
