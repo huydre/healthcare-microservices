@@ -42,14 +42,6 @@ class User(AbstractUser):
         help_text=_('Profile avatar image')
     )
 
-    # Full name field (redundant storage for quick lookup)
-    full_name = models.CharField(
-        _('full name'),
-        max_length=255,
-        blank=True,
-        help_text=_('Combined first and last name')
-    )
-
     # Role and verification
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     is_verified = models.BooleanField(default=False)
@@ -58,10 +50,10 @@ class User(AbstractUser):
     date_joined = models.DateTimeField(auto_now_add=True)
     last_updated = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        # Auto-update full_name from first_name and last_name
-        self.full_name = f"{self.first_name} {self.last_name}".strip()
-        super().save(*args, **kwargs)
+    @property
+    def full_name(self):
+        """Return the full name as a property combining first_name and last_name"""
+        return f"{self.first_name} {self.last_name}".strip()
 
     def __str__(self):
         return f"{self.username} ({self.role})"
@@ -88,6 +80,7 @@ class PatientProfile(BaseProfile):
     emergency_contact = models.CharField(max_length=100, blank=True)
     insurance_provider = models.CharField(max_length=100, blank=True)
     insurance_code = models.CharField(max_length=30, blank=True)
+    insurance_number = models.CharField(max_length=50, blank=True, help_text="Insurance policy number")
     
     # Additional medical fields
     allergies = models.TextField(blank=True, help_text="Known allergies")

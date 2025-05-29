@@ -30,49 +30,99 @@ export default function Solutions() {
   const [active2, setActive2] = useState(tabGroup2[0])
 
   return (
-    <section className="px-8 py-16">
-      <h2 className="text-3xl font-semibold text-gray-300 text-center">
-        Full range of solutions to effectively enhance your{" "}
-        <span className="text-gray-900">virtual care</span>.
-      </h2>
-      <p className="text-center text-gray-500 mt-2">
-        Discover AyaRX’s expertly crafted white-label solutions.
-      </p>
-
-      {/* Tabs */}
-      <div className="flex justify-center space-x-4 mt-8">
-        {tabGroup1.map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActive1(tab)}
-            className={`px-6 py-2 rounded-full ${
-              active1===tab ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-        {tabGroup2.map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActive2(tab)}
-            className={`px-6 py-2 rounded-full ${
-              active2===tab ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Feature cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8">
-        {features.map((f,i) => (
-          <div key={i} className="bg-white rounded-xl p-6 shadow hover:shadow-lg transition">
-            <div className="mb-4">{f.icon}</div>
-            <h3 className="font-medium">{f.title}</h3>
+    <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
+      <div className="container mx-auto px-6 lg:px-8">
+        {/* Header */}
+        <div className="text-center max-w-4xl mx-auto mb-16">
+          <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-medium mb-6">
+            ⚡ Giải pháp toàn diện
           </div>
-        ))}
+          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6">
+            Nâng tầm{" "}
+            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              chăm sóc sức khỏe
+            </span>{" "}
+            với công nghệ hiện đại
+          </h2>
+          <p className="text-xl text-gray-600 leading-relaxed">
+            Khám phá bộ giải pháp chăm sóc sức khỏe thông minh được thiết kế chuyên biệt cho nhu cầu của bạn.
+          </p>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          {tabGroup1.map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActive1(tab)}
+              className={`px-6 py-3 rounded-2xl font-medium transition-all duration-300 ${
+                active1===tab 
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg transform scale-105' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50 shadow-md'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+          {tabGroup2.map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActive2(tab)}
+              className={`px-6 py-3 rounded-2xl font-medium transition-all duration-300 ${
+                active2===tab 
+                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg transform scale-105' 
+                  : 'bg-white text-gray-600 hover:bg-gray-50 shadow-md'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Feature cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {features.map((f, i) => (
+            <div 
+              key={i} 
+              className="group relative bg-white rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100"
+            >
+              {/* Icon */}
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl text-white mb-6 group-hover:scale-110 transition-transform duration-300">
+                {f.icon}
+              </div>
+              
+              {/* Content */}
+              <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-gray-800">
+                {f.title}
+              </h3>
+              
+              {/* Hover effect arrow */}
+              <div className="absolute bottom-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Additional info section */}
+        <div className="mt-20 text-center">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl p-12 text-white">
+            <h3 className="text-3xl font-bold mb-4">Sẵn sàng bắt đầu?</h3>
+            <p className="text-xl mb-8 opacity-90">
+              Trải nghiệm hệ thống chăm sóc sức khỏe thông minh ngay hôm nay
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button className="px-8 py-4 bg-white text-blue-600 rounded-2xl font-semibold hover:bg-gray-100 transition-colors duration-300">
+                Dùng thử miễn phí
+              </button>
+              <button className="px-8 py-4 border-2 border-white text-white rounded-2xl font-semibold hover:bg-white hover:text-blue-600 transition-all duration-300">
+                Liên hệ tư vấn
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   )

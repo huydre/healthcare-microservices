@@ -1,230 +1,414 @@
 import os
 import json
-import numpy as np
-import tensorflow as tf
 import re
-from lime.lime_tabular import LimeTabularExplainer
+import random
 import logging
+import requests
+from datetime import datetime, timedelta
+
+# Import the new trained chatbot
+from .simple_trained_chatbot import SimpleTrainedHealthcareChatBot
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(__file__)
-MODEL_DIR = os.path.join(BASE_DIR, "model")
-
-# Load model
+# Initialize the trained chatbot
+trained_chatbot = None
 try:
-    model_path = os.path.join(MODEL_DIR, "chatbot_model.h5")
-    chatbot_model = tf.keras.models.load_model(model_path)
-    logger.info(f"Loaded model from {model_path}")
+    trained_chatbot = SimpleTrainedHealthcareChatBot()
+    logger.info("✅ Trained Healthcare ChatBot initialized successfully")
 except Exception as e:
-    logger.error(f"Error loading model: {str(e)}")
-    chatbot_model = None
+    logger.error(f"❌ Error initializing Trained Healthcare ChatBot: {str(e)}")
+    trained_chatbot = None
 
-# Load symptom names and disease names
-try:
-    with open(os.path.join(MODEL_DIR, "symptom_names.json"), "r") as f:
-        symptom_names_expanded = json.load(f)
-    
-    with open(os.path.join(MODEL_DIR, "disease_names.json"), "r") as f:
-        diseases_expanded = json.load(f)
-    
-    with open(os.path.join(MODEL_DIR, "symptom_synonyms.json"), "r") as f:
-        symptom_synonyms = json.load(f)
-    
-    with open(os.path.join(MODEL_DIR, "level_map.json"), "r") as f:
-        level_map = json.load(f)
-    
-    logger.info("Loaded symptom and disease metadata")
-except Exception as e:
-    logger.error(f"Error loading metadata: {str(e)}")
-    symptom_names_expanded = []
-    diseases_expanded = []
-    symptom_synonyms = {}
-    level_map = {}
-
-# Lưu trạng thái chat để theo dõi cuộc trò chuyện
+# Store chat sessions for conversation context
 chat_sessions = {}
 
-def parse_symptoms_from_text(text, current_symptoms_vector):
+class HealthcareChatBot:
     """
-    Phân tích văn bản đầu vào để trích xuất triệu chứng và mức độ.
-    Cập nhật current_symptoms_vector.
-    Trả về True nếu có ít nhất một triệu chứng được nhận diện, False nếu không.
+    Main Healthcare ChatBot class that uses the trained TensorFlow model
     """
-    text = text.lower()
-    symptoms_found_in_input = False
-
-    # Ưu tiên các cụm (mức độ + triệu chứng) hoặc (triệu chứng + mức độ)
-    for level_word, level_val in level_map.items():
-        for syn_word, symptom_name in symptom_synonyms.items():
-            # Pattern: level_word + syn_word (e.g., "sốt cao", "ho nhẹ")
-            pattern1 = rf"\b{level_word}\s+{syn_word}\b"
-            # Pattern: syn_word + level_word (e.g., "sốt cao", "ho nhẹ")
-            pattern2 = rf"\b{syn_word}\s+{level_word}\b"
-            
-            if re.search(pattern1, text) or re.search(pattern2, text):
-                if symptom_name in symptom_names_expanded:
-                    idx = symptom_names_expanded.index(symptom_name)
-                    current_symptoms_vector[idx] = float(level_val)
-                    symptoms_found_in_input = True
-                    # Loại bỏ cụm đã xử lý để tránh xử lý lại
-                    text = re.sub(pattern1, "", text)
-                    text = re.sub(pattern2, "", text)
-
-    # Xử lý các triệu chứng đứng một mình (mặc định mức độ là 2 - "vừa" hoặc "có")
-    for syn_word, symptom_name in symptom_synonyms.items():
-        pattern = rf"\b{syn_word}\b"
-        if re.search(pattern, text):
-            if symptom_name in symptom_names_expanded:
-                idx = symptom_names_expanded.index(symptom_name)
-                # Nếu triệu chứng này chưa được gán mức độ từ cụm (level + symptom), gán mặc định
-                if current_symptoms_vector[idx] == 0: # Chỉ gán nếu chưa có
-                     current_symptoms_vector[idx] = 2.0 # Mặc định là "vừa"
-                symptoms_found_in_input = True
-
-    return symptoms_found_in_input
-
-def get_missing_symptoms_questions(symptoms_vector):
-    """Tạo câu hỏi cho các triệu chứng chưa được cung cấp (giá trị là 0)."""
-    questions = []
-    for i, symptom_name in enumerate(symptom_names_expanded):
-        if symptoms_vector[i] == 0: # Chỉ hỏi nếu chưa có thông tin
-             # Đơn giản hóa câu hỏi
-            if symptom_name == "Fever": questions.append(f"Bạn có bị sốt không (không/nhẹ/vừa/nặng)?")
-            elif symptom_name == "Cough": questions.append(f"Bạn có ho không (không/nhẹ/vừa/nặng)?")
-            elif symptom_name == "Sore Throat": questions.append(f"Bạn có đau họng không (không/nhẹ/vừa/nặng)?")
-            # ... thêm các câu hỏi thân thiện hơn cho các triệu chứng khác
+    
+    def __init__(self):
+        self.session_id = None
+        self.conversation_context = {}
+        
+    def get_bot_response(self, user_message, session_id=None, user_token=None):
+        """
+        Get bot response using the trained TensorFlow model
+        """
+        try:
+            # Use session_id if provided
+            if session_id:
+                self.session_id = session_id
+                
+            # Initialize session if not exists
+            if self.session_id not in chat_sessions:
+                chat_sessions[self.session_id] = {
+                    'context': {},
+                    'last_intent': None,
+                    'conversation_history': [],
+                    'user_token': user_token  # Store user token in session
+                }
             else:
-                questions.append(f"Bạn có bị {symptom_name.lower()} không (không/nhẹ/vừa/nặng)?")
-    # Chỉ hỏi một vài triệu chứng mỗi lần để không làm người dùng quá tải
-    return questions[:3] # Hỏi tối đa 3 triệu chứng còn thiếu
-
-def get_or_create_user_session(user_id):
-    """Lấy hoặc tạo mới session cho user"""
-    if user_id not in chat_sessions:
-        chat_sessions[user_id] = {
-            'symptoms': np.zeros(len(symptom_names_expanded), dtype=np.float32),
-            'asked_symptoms': set(),
-            'state': 'collecting_symptoms',  # collecting_symptoms, diagnosing, done
-            'last_message': None
-        }
-    return chat_sessions[user_id]
-
-def prepare_lime_explainer():
-    """Chuẩn bị LIME explainer"""
-    # Tạo dữ liệu huấn luyện giả cho LIME
-    # Điều này nên được thay thế bằng dữ liệu thực tế từ mô hình đã huấn luyện
-    X_train_dummy = np.random.rand(100, len(symptom_names_expanded))
-    return LimeTabularExplainer(
-        X_train_dummy,
-        feature_names=symptom_names_expanded,
-        class_names=diseases_expanded,
-        mode='classification'
-    )
-
-def predict_response(message, user_id="anonymous"):
-    """Xử lý tin nhắn đầu vào và trả về phản hồi"""
-    session = get_or_create_user_session(user_id)
-    
-    if message.lower() in ['reset', 'bắt đầu lại', 'bat dau lai']:
-        session['symptoms'] = np.zeros(len(symptom_names_expanded), dtype=np.float32)
-        session['asked_symptoms'].clear()
-        session['state'] = 'collecting_symptoms'
-        return "Xin chào! Tôi là chatbot chẩn đoán sức khỏe. Hãy mô tả các triệu chứng của bạn."
-    
-    if message.lower() in ['thoát', 'exit', 'quit']:
-        session['state'] = 'done'
-        return "Cảm ơn bạn đã sử dụng dịch vụ. Tạm biệt!"
-    
-    if session['state'] == 'collecting_symptoms':
-        symptoms_identified = parse_symptoms_from_text(message, session['symptoms'])
-        
-        if message.lower() in ['xong', 'chẩn đoán', 'chan doan', 'ok', 'xem kết quả']:
-            if not np.any(session['symptoms'] > 0):
-                return "Tôi chưa nhận được thông tin triệu chứng nào. Bạn có thể mô tả lại được không?"
+                # Update user token if provided
+                if user_token:
+                    chat_sessions[self.session_id]['user_token'] = user_token
             
-            session['state'] = 'diagnosing'
-            return diagnose_symptoms(session)
-        
-        if symptoms_identified:
-            response = "Tôi đã ghi nhận các triệu chứng bạn vừa cung cấp.\n"
-            response += "Triệu chứng hiện tại:\n"
+            # Add to conversation history
+            chat_sessions[self.session_id]['conversation_history'].append({
+                'user': user_message,
+                'timestamp': datetime.now().isoformat()
+            })
             
-            has_symptom = False
-            for i, val in enumerate(session['symptoms']):
-                if val > 0:
-                    response += f"- {symptom_names_expanded[i]}: mức độ {int(val)}\n"
-                    has_symptom = True
-            
-            if not has_symptom:
-                response += "(Chưa có triệu chứng nào được ghi nhận rõ ràng)\n"
-            
-            missing_questions = get_missing_symptoms_questions(session['symptoms'])
-            if missing_questions:
-                response += "\nĐể có chẩn đoán chính xác hơn, bạn có thể cho tôi biết thêm về:\n"
-                for q in missing_questions[:2]:  # Chỉ hỏi 2 câu mỗi lần
-                    response += f"- {q}\n"
-            
-            response += "\nHoặc bạn có thể nói 'xong' để chẩn đoán với thông tin hiện tại."
-            return response
-        else:
-            return "Xin lỗi, tôi chưa hiểu rõ. Bạn có thể mô tả lại triệu chứng bằng các từ như 'sốt', 'ho', 'đau đầu', kèm theo mức độ (nhẹ, vừa, nặng) được không?"
-    
-    elif session['state'] == 'diagnosing':
-        session['state'] = 'collecting_symptoms'
-        session['symptoms'] = np.zeros(len(symptom_names_expanded), dtype=np.float32)
-        session['asked_symptoms'].clear()
-        
-        if message.lower() in ['có', 'co', 'yes']:
-            return "Hãy mô tả các triệu chứng mới."
-        elif message.lower() in ['không', 'khong', 'no']:
-            session['state'] = 'done'
-            return "Cảm ơn bạn đã sử dụng dịch vụ. Tạm biệt!"
-        else:
-            parse_symptoms_from_text(message, session['symptoms'])
-            if np.any(session['symptoms'] > 0):
-                return "Tôi đã ghi nhận các triệu chứng mới. Bạn có thể cung cấp thêm hoặc gõ 'xong' để chẩn đoán."
+            # Get response from trained model
+            if trained_chatbot and trained_chatbot.model_loaded:
+                response = trained_chatbot.get_response(user_message, session_id, user_token=user_token)
+                
+                # Add bot response to history
+                chat_sessions[self.session_id]['conversation_history'].append({
+                    'bot': response,
+                    'timestamp': datetime.now().isoformat()
+                })
+                
+                return response
             else:
-                return "Hãy mô tả các triệu chứng của bạn hoặc gõ 'thoát' để kết thúc."
-    
-    return "Xin lỗi, tôi không hiểu yêu cầu. Bạn có thể mô tả lại không?"
+                # Fallback response if model is not loaded
+                fallback_responses = [
+                    "Xin lỗi, hệ thống chatbot đang gặp sự cố. Vui lòng thử lại sau.",
+                    "Tôi hiện tại không thể xử lý yêu cầu của bạn. Vui lòng liên hệ bác sĩ trực tiếp.",
+                    "Hệ thống đang được bảo trì. Vui lòng thử lại sau ít phút."
+                ]
+                return random.choice(fallback_responses)
+                
+        except Exception as e:
+            logger.error(f"Error in get_bot_response: {str(e)}")
+            return "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau."
 
-def diagnose_symptoms(session):
-    """Chẩn đoán dựa trên triệu chứng đã thu thập"""
-    if chatbot_model is None:
-        return "Xin lỗi, hệ thống chẩn đoán hiện không khả dụng."
+    def get_conversation_history(self, session_id):
+        """
+        Get conversation history for a session
+        """
+        if trained_chatbot:
+            return trained_chatbot.get_conversation_history(session_id)
+        elif session_id in chat_sessions:
+            return chat_sessions[session_id]['conversation_history']
+        return []
+
+    def clear_conversation(self, session_id):
+        """
+        Clear conversation history for a session
+        """
+        if trained_chatbot:
+            return trained_chatbot.clear_conversation(session_id)
+        elif session_id in chat_sessions:
+            chat_sessions[session_id]['conversation_history'] = []
+            chat_sessions[session_id]['context'] = {}
+            return True
+        return False
+
+    def get_session_context(self, session_id):
+        """
+        Get session context
+        """
+        if trained_chatbot:
+            # Get the full conversation context from trained chatbot
+            context = trained_chatbot.conversation_context.get(session_id, {})
+            return context.get('appointment_data', {})
+        elif session_id in chat_sessions:
+            return chat_sessions[session_id]['context']
+        return {}
+
+    def update_session_context(self, session_id, context_data):
+        """
+        Update session context
+        """
+        if trained_chatbot:
+            # Update context in trained chatbot
+            if session_id not in trained_chatbot.conversation_context:
+                trained_chatbot.conversation_context[session_id] = {
+                    'conversation_history': [],
+                    'appointment_state': None,
+                    'appointment_data': {}
+                }
+            trained_chatbot.conversation_context[session_id]['appointment_data'].update(context_data)
+        else:
+            # Fallback to local session management
+            if session_id not in chat_sessions:
+                chat_sessions[session_id] = {
+                    'context': {},
+                    'last_intent': None,
+                    'conversation_history': []
+                }
+            chat_sessions[session_id]['context'].update(context_data)
+
+    def book_appointment(self, patient_name, phone_number, appointment_date, appointment_time, doctor_specialty, symptoms):
+        """
+        Book an appointment using the trained model's appointment booking functionality
+        This method is deprecated - use the interactive appointment booking through get_bot_response instead
+        """
+        try:
+            if trained_chatbot:
+                # For backward compatibility, create a simple appointment booking
+                # However, the new system uses interactive booking through conversation
+                return {
+                    'success': True,
+                    'message': 'Để đặt lịch hẹn, vui lòng nhắn "đặt lịch hẹn" để bắt đầu quy trình đặt lịch tương tác.',
+                    'note': 'Hệ thống mới sử dụng quy trình đặt lịch tương tác thông qua cuộc trò chuyện.'
+                }
+            else:
+                return {
+                    'success': False,
+                    'message': 'Hệ thống đặt lịch hiện tại không khả dụng. Vui lòng thử lại sau.'
+                }
+        except Exception as e:
+            logger.error(f"Error in book_appointment: {str(e)}")
+            return {
+                'success': False,
+                'message': 'Đã có lỗi xảy ra khi đặt lịch hẹn. Vui lòng thử lại sau.'
+            }
+
+    def is_healthy(self):
+        """
+        Check if the chatbot system is healthy
+        """
+        try:
+            if trained_chatbot and trained_chatbot.model_loaded:
+                return {
+                    'status': 'healthy',
+                    'model_loaded': True,
+                    'tensorflow_available': trained_chatbot.tensorflow_available if hasattr(trained_chatbot, 'tensorflow_available') else False,
+                    'message': 'Trained Healthcare ChatBot is operational'
+                }
+            else:
+                return {
+                    'status': 'unhealthy',
+                    'model_loaded': False,
+                    'tensorflow_available': False,
+                    'message': 'Trained model is not loaded'
+                }
+        except Exception as e:
+            return {
+                'status': 'error',
+                'model_loaded': False,
+                'tensorflow_available': False,
+                'message': f'Error checking health: {str(e)}'
+            }
+
+    def get_appointment_state(self, session_id):
+        """
+        Get current appointment booking state for a session
+        """
+        if trained_chatbot and session_id in trained_chatbot.conversation_context:
+            return trained_chatbot.conversation_context[session_id].get('appointment_state')
+        return None
+
+    def get_appointment_data(self, session_id):
+        """
+        Get current appointment data for a session
+        """
+        if trained_chatbot and session_id in trained_chatbot.conversation_context:
+            return trained_chatbot.conversation_context[session_id].get('appointment_data', {})
+        return {}
+
+    def cancel_appointment_booking(self, session_id):
+        """
+        Cancel current appointment booking process
+        """
+        if trained_chatbot and session_id in trained_chatbot.conversation_context:
+            trained_chatbot.conversation_context[session_id]['appointment_state'] = None
+            trained_chatbot.conversation_context[session_id]['appointment_data'] = {}
+            return True
+        return False
+
+# Convenience functions for backward compatibility
+def get_bot_response(user_message, session_id=None, user_token=None):
+    """
+    Convenience function to get bot response
+    """
+    bot = HealthcareChatBot()
+    return bot.get_bot_response(user_message, session_id, user_token)
+
+def book_appointment(patient_name, phone_number, appointment_date, appointment_time, doctor_specialty, symptoms):
+    """
+    Convenience function to book appointment
+    """
+    bot = HealthcareChatBot()
+    return bot.book_appointment(patient_name, phone_number, appointment_date, appointment_time, doctor_specialty, symptoms)
+
+def get_conversation_history(session_id):
+    """
+    Convenience function to get conversation history
+    """
+    bot = HealthcareChatBot()
+    return bot.get_conversation_history(session_id)
+
+def clear_conversation(session_id):
+    """
+    Convenience function to clear conversation
+    """
+    bot = HealthcareChatBot()
+    return bot.clear_conversation(session_id)
+
+def is_chatbot_healthy():
+    """
+    Convenience function to check chatbot health
+    """
+    bot = HealthcareChatBot()
+    return bot.is_healthy()
+
+def get_appointment_state(session_id):
+    """
+    Convenience function to get appointment state
+    """
+    bot = HealthcareChatBot()
+    return bot.get_appointment_state(session_id)
+
+def get_appointment_data(session_id):
+    """
+    Convenience function to get appointment data
+    """
+    bot = HealthcareChatBot()
+    return bot.get_appointment_data(session_id)
+
+def cancel_appointment_booking(session_id):
+    """
+    Convenience function to cancel appointment booking
+    """
+    bot = HealthcareChatBot()
+    return bot.cancel_appointment_booking(session_id)
+
+# Initialize a default bot instance for backward compatibility
+default_bot = HealthcareChatBot()
+
+# Additional utility functions
+def preprocess_user_input(user_input):
+    """
+    Clean and preprocess user input
+    """
+    if not user_input:
+        return ""
     
-    response = "Dựa trên các triệu chứng bạn cung cấp:\n"
-    for i, val in enumerate(session['symptoms']):
-        if val > 0:
-            response += f"- {symptom_names_expanded[i]}: mức độ {int(val)}\n"
+    # Remove extra whitespace
+    user_input = user_input.strip()
     
-    # Dự đoán
-    patient_vector = session['symptoms'].reshape(1, -1)
-    probabilities = chatbot_model.predict(patient_vector, verbose=0)[0]
+    # Remove multiple spaces
+    user_input = re.sub(r'\s+', ' ', user_input)
     
-    response += "\n--- Kết quả chẩn đoán ---\n"
-    sorted_indices = np.argsort(probabilities)[::-1]
-    for i in range(min(3, len(diseases_expanded))):
-        idx = sorted_indices[i]
-        response += f"- {diseases_expanded[idx]}: {probabilities[idx]*100:.2f}%\n"
+    return user_input
+
+def generate_session_id():
+    """
+    Generate a unique session ID
+    """
+    import uuid
+    return str(uuid.uuid4())
+
+def get_system_info():
+    """
+    Get system information
+    """
+    return {
+        'chatbot_type': 'Enhanced Trained TensorFlow Healthcare ChatBot',
+        'model_path': 'training_model.h5',
+        'language': 'Vietnamese',
+        'features': [
+            'Seq2Seq LSTM Model',
+            'Vietnamese Text Processing', 
+            'Healthcare Domain Specific',
+            'Interactive Appointment Booking',
+            'Multi-step Appointment Workflow',
+            'API Integration (User Service, Appointment Service)',
+            'Session-based Conversation Context',
+            'Real-time Doctor/Time Slot Fetching',
+            'Appointment Confirmation System'
+        ],
+        'appointment_booking': {
+            'enabled': True,
+            'workflow_steps': 7,
+            'features': ['Doctor Selection', 'Date Selection', 'Time Slot Selection', 'Reason Entry', 'Confirmation']
+        },
+        'status': 'Active' if trained_chatbot and trained_chatbot.model_loaded else 'Inactive'
+    }
+
+# Test function
+def test_chatbot():
+    """
+    Test the chatbot functionality including appointment booking
+    """
+    test_messages = [
+        "Xin chào",
+        "Tôi bị đau đầu",
+        "Làm thế nào để đặt lịch hẹn?",
+        "đặt lịch hẹn",
+        "Cảm ơn bạn"
+    ]
     
-    primary_diagnosis_idx = sorted_indices[0]
-    primary_diagnosis_name = diseases_expanded[primary_diagnosis_idx]
-    response += f"\nChẩn đoán chính có khả năng cao nhất: {primary_diagnosis_name}\n"
+    print("🧪 Testing Enhanced Trained Healthcare ChatBot...")
+    session_id = generate_session_id()
     
-    # Giả lập phân tích LIME (trong môi trường thực, bạn sẽ sử dụng LIME thực tế)
-    response += f"\n--- Giải thích cho chẩn đoán {primary_diagnosis_name} ---\n"
-    # Xác định các triệu chứng nổi bật nhất
-    top_symptoms = []
-    for i, val in enumerate(session['symptoms']):
-        if val > 0:
-            top_symptoms.append((symptom_names_expanded[i], val))
+    for message in test_messages:
+        try:
+            response = get_bot_response(message, session_id)
+            print(f"User: {message}")
+            print(f"Bot: {response}")
+            
+            # Check appointment state
+            appointment_state = get_appointment_state(session_id)
+            if appointment_state:
+                print(f"Appointment State: {appointment_state}")
+                appointment_data = get_appointment_data(session_id)
+                if appointment_data:
+                    print(f"Appointment Data: {appointment_data}")
+            
+            print("-" * 50)
+        except Exception as e:
+            print(f"Error testing message '{message}': {str(e)}")
     
-    top_symptoms.sort(key=lambda x: x[1], reverse=True)
-    for symptom, val in top_symptoms[:3]:
-        response += f"- Triệu chứng '{symptom}' ở mức {int(val)} góp phần vào chẩn đoán này\n"
+    # Test health check
+    health = is_chatbot_healthy()
+    print(f"Health Check: {health}")
     
-    response += "\nBạn có muốn chẩn đoán cho một bộ triệu chứng khác không? (gõ 'có' hoặc mô tả triệu chứng mới, 'không' để thoát)"
-    return response
+    # Test system info
+    info = get_system_info()
+    print(f"System Info: {info}")
+
+def test_appointment_workflow():
+    """
+    Test the complete appointment booking workflow
+    """
+    print("🏥 Testing Complete Appointment Booking Workflow...")
+    session_id = generate_session_id()
+    
+    workflow_steps = [
+        "đặt lịch hẹn",           # Start booking
+        "1",                      # Select doctor 1
+        "1",                      # Select first available date
+        "1",                      # Select first time slot
+        "Tôi bị đau đầu",        # Enter reason
+        "có"                      # Confirm booking
+    ]
+    
+    for i, message in enumerate(workflow_steps):
+        try:
+            print(f"\n📝 Step {i+1}: {message}")
+            response = get_bot_response(message, session_id)
+            print(f"Bot: {response}")
+            
+            # Show current state
+            state = get_appointment_state(session_id)
+            data = get_appointment_data(session_id)
+            print(f"State: {state}")
+            if data:
+                print(f"Data: {data}")
+                
+        except Exception as e:
+            print(f"Error in step {i+1}: {str(e)}")
+    
+    print("\n✅ Appointment workflow test completed!")
+
+if __name__ == "__main__":
+    print("🚀 Starting Healthcare ChatBot Tests...")
+    test_chatbot()
+    print("\n" + "="*60 + "\n")
+    test_appointment_workflow()

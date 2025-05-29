@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from .serializers import *
+from .authentication import MicroserviceJWTAuthentication
+from .permissions import IsAuthenticatedOrService
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -41,7 +43,15 @@ class DoctorCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class DoctorListView(APIView):
+    authentication_classes = [MicroserviceJWTAuthentication]
+    permission_classes = [IsAuthenticatedOrService]
+    
     def get(self, request):
+        print(f"🔍 DoctorListView - User: {request.user}")
+        print(f"🔍 DoctorListView - User type: {type(request.user)}")
+        print(f"🔍 DoctorListView - User authenticated: {getattr(request.user, 'is_authenticated', 'No attr')}")
+        print(f"🔍 DoctorListView - User role: {getattr(request.user, 'role', 'No attr')}")
+        
         doctors = User.objects.filter(role='DOCTOR')
         serializer = DoctorDetailSerializer(doctors, many=True)
         return Response(serializer.data)

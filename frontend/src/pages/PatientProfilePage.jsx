@@ -170,7 +170,11 @@ export default function PatientProfilePage() {
               >
                 <option value="">Select {label}</option>
                 {options?.map(option => (
-                  <option key={option} value={option}>{option}</option>
+                  typeof option === 'object' ? (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ) : (
+                    <option key={option} value={option}>{option}</option>
+                  )
                 ))}
               </select>
             ) : type === 'textarea' ? (
@@ -190,7 +194,10 @@ export default function PatientProfilePage() {
             )
           ) : (
             <p className="text-gray-900">
-              {type === 'date' ? formatDate(value) : value || 'Not provided'}
+              {type === 'date' ? formatDate(value) : 
+               type === 'select' && typeof options?.[0] === 'object' ? 
+                 options?.find(opt => opt.value === value)?.label || value :
+               value || 'Not provided'}
             </p>
           )}
         </div>
@@ -372,7 +379,11 @@ export default function PatientProfilePage() {
                       value={userData.gender}
                       field="gender"
                       type="select"
-                      options={['Male', 'Female', 'Other']}
+                      options={[
+                        { value: 'M', label: 'Male' },
+                        { value: 'F', label: 'Female' },
+                        { value: 'O', label: 'Other' }
+                      ]}
                     />
                   </div>
 

@@ -144,4 +144,65 @@ export const logoutUser = () => {
   window.location.href = '/login';
 };
 
+// Medical Records API functions
+export const getMedicalRecords = (patientId = null) => {
+  const endpoint = patientId ? `/medical-records/patient/${patientId}/` : '/medical-records/';
+  return api.get(endpoint);
+};
+
+export const getConsultations = (patientId = null, params = {}) => {
+  const endpoint = patientId ? `/consultations/patient/${patientId}/` : '/consultations/';
+  return api.get(endpoint, { params });
+};
+
+export const getTestResults = (patientId = null, params = {}) => {
+  const endpoint = patientId ? `/test-results/patient/${patientId}/` : '/test-results/';
+  return api.get(endpoint, { params });
+};
+
+export const getPrescriptions = (patientId = null, params = {}) => {
+  const endpoint = patientId ? `/prescriptions/patient/${patientId}/` : '/prescriptions/';
+  return api.get(endpoint, { params });
+};
+
+export const getVitalSigns = (patientId = null, params = {}) => {
+  const endpoint = patientId ? `/vital-signs/patient/${patientId}/` : '/vital-signs/';
+  return api.get(endpoint, { params });
+};
+
+export const getAllergies = (patientId = null) => {
+  const endpoint = patientId ? `/allergies/patient/${patientId}/` : '/allergies/';
+  return api.get(endpoint);
+};
+
+export const createAllergy = (allergyData) => {
+  return api.post('/allergies/', allergyData);
+};
+
+export const updateAllergy = (allergyId, allergyData) => {
+  return api.put(`/allergies/${allergyId}/`, allergyData);
+};
+
+export const deleteAllergy = (allergyId) => {
+  return api.delete(`/allergies/${allergyId}/`);
+};
+
+export const downloadTestResult = (testId) => {
+  return api.get(`/test-results/${testId}/download/`, {
+    responseType: 'blob'
+  });
+};
+
+export const downloadPrescription = (prescriptionId) => {
+  return api.get(`/prescriptions/${prescriptionId}/download/`, {
+    responseType: 'blob'
+  });
+};
+
+// Medical Records Statistics
+export const getMedicalRecordsStats = (patientId = null) => {
+  const endpoint = patientId ? `/medical-records/stats/patient/${patientId}/` : '/medical-records/stats/';
+  return api.get(endpoint);
+};
+
 export default api;

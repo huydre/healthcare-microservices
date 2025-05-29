@@ -39,7 +39,12 @@ export default function AppointmentBookingForm({ selectedDate, onDoctorSelected 
 
   const fetchDoctors = async () => {
     try {
-      const response = await axios.get('http://localhost:8000/api/doctors/');
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:8000/api/doctors/', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       setDoctors(response.data);
     } catch (err) {
       setError('Failed to load doctors');
@@ -407,14 +412,6 @@ export default function AppointmentBookingForm({ selectedDate, onDoctorSelected 
           </div>
         )}
       </form>
-
-      {/* Debug Info (remove in production) */}
-      {process.env.NODE_ENV === 'development' && availableSlotsData && (
-        <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
-          <strong>Debug Info:</strong>
-          <pre>{JSON.stringify(availableSlotsData, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 }

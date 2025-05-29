@@ -89,7 +89,8 @@ class ProxyUserDoctors(APIView):
     def get(self, request):
         return forward_request(
             'GET',
-            f"{settings.USER_SERVICE}/api/users/doctors/"
+            f"{settings.USER_SERVICE}/api/users/doctors/",
+            headers={'Authorization': request.headers.get('Authorization')}
         )
 
 # ---- APPOINTMENT SERVICE ----
@@ -153,11 +154,6 @@ class ProxyAppointmentList(APIView):
             f"{settings.APPOINTMENT_SERVICE}/api/appointments/",
             params=params,
             headers={'Authorization': auth}  # Forward Authorization header
-        )
-            'GET',
-            f"{settings.APPOINTMENT_SERVICE}/api/appointments/",
-            params=params,
-            headers={'Authorization': auth}
         )
 
 class ProxyAppointmentDetail(APIView):

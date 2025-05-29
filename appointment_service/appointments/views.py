@@ -12,6 +12,7 @@ from django.conf import settings
 from django.db.models import Count, Q, Sum, F, FloatField
 from django.db.models.functions import Cast
 import datetime
+import requests
 from collections import defaultdict
 
 
@@ -622,6 +623,98 @@ class PatientAppointmentCalendarView(APIView):
     authentication_classes = [MicroserviceJWTAuthentication]
     permission_classes = [IsAuthenticated]
     
+    def get_doctor_names(self, doctor_ids):
+        """
+        Gọi user service để lấy tên bác sĩ
+        """
+        doctor_names = {}
+        
+        if not doctor_ids:
+            return doctor_names
+            
+        try:
+            import requests
+            
+            # Gọi user service để lấy thông tin nhiều bác sĩ cùng lúc
+            try:
+                # Thử gọi endpoint để lấy nhiều users cùng lúc
+                params = {'ids': ','.join(map(str, doctor_ids)), 'role': 'DOCTOR'}
+                response = requests.get(
+                    'http://user_service:8000/api/users/',
+                    params=params,
+                    timeout=10
+                )
+                
+                if response.status_code == 200:
+                    users_data = response.json()
+                    
+                    # Nếu response là dict với key 'results'
+                    if isinstance(users_data, dict) and 'results' in users_data:
+                        users_list = users_data['results']
+                    elif isinstance(users_data, list):
+                        users_list = users_data
+                    else:
+                        users_list = []
+                    
+                    for user_data in users_list:
+                        user_id = user_data.get('id')
+                        first_name = user_data.get('first_name', '')
+                        last_name = user_data.get('last_name', '')
+                        
+                        if first_name or last_name:
+                            full_name = f"{first_name} {last_name}".strip()
+                            doctor_names[user_id] = full_name
+                        else:
+                            doctor_names[user_id] = user_data.get('username', f"Bác sĩ {user_id}")
+                    
+                    print(f"✅ Successfully fetched {len(doctor_names)} doctor names")
+                    
+                else:
+                    print(f"⚠️ Failed to get doctors info: {response.status_code}")
+                    raise Exception("Batch request failed")
+                    
+            except Exception as batch_error:
+                print(f"⚠️ Batch request failed: {batch_error}, trying individual requests...")
+                
+                # Fallback: gọi từng bác sĩ riêng lẻ
+                for doctor_id in doctor_ids:
+                    try:
+                        response = requests.get(
+                            f'http://user_service:8000/api/users/{doctor_id}/',
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            user_data = response.json()
+                            first_name = user_data.get('first_name', '')
+                            last_name = user_data.get('last_name', '')
+                            
+                            if first_name or last_name:
+                                full_name = f"{first_name} {last_name}".strip()
+                                doctor_names[doctor_id] = full_name
+                            else:
+                                doctor_names[doctor_id] = user_data.get('username', f"Bác sĩ {doctor_id}")
+                        else:
+                            print(f"⚠️ Failed to get doctor {doctor_id} info: {response.status_code}")
+                            doctor_names[doctor_id] = f"Bác sĩ {doctor_id}"
+                            
+                    except requests.exceptions.RequestException as e:
+                        print(f"⚠️ Error calling user service for doctor {doctor_id}: {e}")
+                        doctor_names[doctor_id] = f"Bác sĩ {doctor_id}"
+                        
+        except Exception as e:
+            print(f"⚠️ Error in get_doctor_names: {e}")
+            # Fallback: use doctor IDs
+            for doctor_id in doctor_ids:
+                doctor_names[doctor_id] = f"Bác sĩ {doctor_id}"
+        
+        # Đảm bảo tất cả doctor_ids đều có tên
+        for doctor_id in doctor_ids:
+            if doctor_id not in doctor_names:
+                doctor_names[doctor_id] = f"Bác sĩ {doctor_id}"
+        
+        return doctor_names
+    
     def get(self, request):
         try:
             from django.utils import timezone as django_timezone
@@ -657,6 +750,10 @@ class PatientAppointmentCalendarView(APIView):
             # Group appointments by date
             calendar_data = {}
             
+            # Get unique doctor IDs to fetch their names
+            doctor_ids = list(set([appt.doctor_id for appt in appointments]))
+            doctor_names = self.get_doctor_names(doctor_ids)
+            
             for appointment in appointments:
                 date_str = appointment.scheduled_time.strftime('%Y-%m-%d')
                 
@@ -667,8 +764,8 @@ class PatientAppointmentCalendarView(APIView):
                         'count': 0
                     }
                 
-                # Get doctor name (you might want to call user service here)
-                doctor_name = appointment.doctor_name or f"Doctor {appointment.doctor_id}"
+                # Get doctor name from user service
+                doctor_name = doctor_names.get(appointment.doctor_id, f"Doctor {appointment.doctor_id}")
                 
                 calendar_data[date_str]['appointments'].append({
                     'id': appointment.id,

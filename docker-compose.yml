@@ -46,7 +46,16 @@ services:
     ports:
       - "8010:8010"
 
-  chatbot_service:
+  chatbotservice:
     build: ./chatbot_service
     ports:
-      - "8020:8020"  
+      - "8020:8020"
+    environment:
+      - DOCKER_ENV=true
+      - USER_SERVICE_URL=http://userservice:8001
+      - APPOINTMENT_SERVICE_URL=http://appointmentservice:8002
+      - GATEWAY_URL=http://gateway:8000
+    depends_on:
+      - gateway
+      - userservice
+      - appointmentservice  

@@ -9,6 +9,7 @@ import VirtualRobot from "./components/VirtualRobot";
 import DoctorPage from "./pages/DoctorPage";
 import DoctorDashboardPage from "./pages/DoctorDashboardPage";
 import PatientProfilePage from "./pages/PatientProfilePage";
+import MedicalRecordsPage from "./pages/MedicalRecordsPage";
 
 function App() {
   return (
@@ -22,6 +23,8 @@ function App() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<PatientProfilePage />} />
         <Route path="/appointments" element={<AppointmentPage/>} />
+        <Route path="/medical-records" element={<MedicalRecordsPage/>} />
+        <Route path="/dashboard/reports" element={<MedicalRecordsPage/>} />
         <Route path="/vr" element={<VirtualRobot/>} />
         <Route path="/dashboard/vr" element={<VirtualRobot/>} />
         <Route path="/doctor" element={<DoctorPage />} />

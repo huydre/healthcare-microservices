@@ -10,7 +10,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'role']
+        fields = ['username', 'email', 'password', 'role', 'first_name', 'last_name']
 
     def create(self, validated_data):
         password = validated_data.pop('password')
@@ -44,12 +44,15 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         # bao gồm avatar để write, avatar_url để read
         fields = [
-            'id','username','first_name','last_name','full_name','email','phone_number',
+            'id','username','first_name','last_name','email','phone_number',
             'gender','role','avatar','avatar_url','profile_data','date_joined','last_updated',
             # Add additional fields that might be expected by frontend
             'phone', 'date_of_birth', 'address', 'emergency_contact', 'blood_type', 
             'allergies', 'medical_conditions', 'insurance_number'
         ]
+        extra_kwargs = {
+            'avatar': {'write_only': True, 'required': False},
+        }
         extra_kwargs = {
             'avatar': {'write_only': True, 'required': False},
         }
@@ -150,7 +153,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         """Custom update method to handle profile fields"""
-        # Extract profile-related fields
+        # Extract profile-related fields that should be saved to profile models
         profile_fields = {
             'date_of_birth': validated_data.pop('date_of_birth', None),
             'address': validated_data.pop('address', None),
@@ -161,35 +164,47 @@ class UserSerializer(serializers.ModelSerializer):
             'insurance_number': validated_data.pop('insurance_number', None),
         }
         
-        # Update basic user fields
-        for attr, value in validated_data.items():
-            if attr == 'phone':
-                # Map phone to phone_number
-                setattr(instance, 'phone_number', value)
-            else:
-                setattr(instance, attr, value)
+        # Map phone to phone_number for User model
+        if 'phone' in validated_data:
+            validated_data['phone_number'] = validated_data.pop('phone')
         
+        # Update User model fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
         instance.save()
         
-        # Update profile fields if user is a patient
-        if instance.role == 'PATIENT' and any(profile_fields.values()):
-            try:
-                profile = instance.patientprofile
-            except:
-                # Create profile if it doesn't exist
-                from .models import PatientProfile
-                profile = PatientProfile.objects.create(user=instance)
+        # Update profile data based on user role
+        if instance.role == 'PATIENT':
+            # Create or get PatientProfile
+            patient_profile, created = PatientProfile.objects.get_or_create(
+                user=instance,
+                defaults={}
+            )
             
-            # Update profile fields
+            # Update profile fields if they were provided
+            profile_updated = False
             for field, value in profile_fields.items():
-                if value is not None:
+                if value is not None:  # Only update if value was provided
                     if field == 'insurance_number':
                         # Map insurance_number to insurance_code
-                        setattr(profile, 'insurance_code', value)
+                        setattr(patient_profile, 'insurance_code', value)
                     else:
-                        setattr(profile, field, value)
+                        setattr(patient_profile, field, value)
+                    profile_updated = True
             
-            profile.save()
+            if profile_updated:
+                patient_profile.save()
+        
+        # Handle other roles if needed
+        elif instance.role == 'DOCTOR':
+            # Update clinic_address if provided in address field
+            if profile_fields.get('address'):
+                doctor_profile, created = DoctorProfile.objects.get_or_create(
+                    user=instance,
+                    defaults={'specialty': 'General Practice'}  # default value
+                )
+                doctor_profile.clinic_address = profile_fields['address']
+                doctor_profile.save()
         
         return instance
 

@@ -8,7 +8,8 @@ export default function RegisterPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     username: '',
     email: '',
     password: '',
@@ -24,7 +25,8 @@ export default function RegisterPage() {
 
   const validate = () => {
     const errs = {};
-    if (!formData.fullName) errs.fullName = 'Full Name is required';
+    if (!formData.firstName) errs.firstName = 'First Name is required';
+    if (!formData.lastName) errs.lastName = 'Last Name is required';
     if (!formData.username) errs.username = 'Username is required';
     if (!formData.email) errs.email = 'Email is required';
     if (!formData.email.includes('@')) errs.email = 'Enter a valid email address';
@@ -51,8 +53,8 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         role: formData.role,
-        first_name: formData.fullName.split(' ')[0] || '',
-        last_name: formData.fullName.split(' ').slice(1).join(' ') || ''
+        first_name: formData.firstName,
+        last_name: formData.lastName
       };
 
       // Send registration request
@@ -79,6 +81,8 @@ export default function RegisterPage() {
         if (errorData.username) apiErrors.username = errorData.username[0];
         if (errorData.email) apiErrors.email = errorData.email[0];
         if (errorData.password) apiErrors.password = errorData.password[0];
+        if (errorData.first_name) apiErrors.firstName = errorData.first_name[0];
+        if (errorData.last_name) apiErrors.lastName = errorData.last_name[0];
         
         setErrors({
           ...validationErrors,
@@ -108,16 +112,30 @@ export default function RegisterPage() {
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Full Name</label>
-            <input
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
-              placeholder="John Doe"
-            />
-            {errors.fullName && <p className="text-sm text-red-600 mt-1">{errors.fullName}</p>}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">First Name</label>
+              <input
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                placeholder="John"
+              />
+              {errors.firstName && <p className="text-sm text-red-600 mt-1">{errors.firstName}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Last Name</label>
+              <input
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+                placeholder="Doe"
+              />
+              {errors.lastName && <p className="text-sm text-red-600 mt-1">{errors.lastName}</p>}
+            </div>
           </div>
 
           <div>
