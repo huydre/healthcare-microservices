@@ -357,3 +357,52 @@ class DashboardStatsView(APIView):
                 'reason': 'Regular checkup'
             }
         ]
+
+class DoctorListAPIView(APIView):
+    """API để lấy danh sách bác sĩ cho các microservices khác"""
+    permission_classes = [AllowAny]  # Cho phép các service khác gọi
+    
+    def get(self, request):
+        doctors = User.objects.filter(role='DOCTOR').select_related('doctorprofile')
+        doctor_list = []
+        
+        for doctor in doctors:
+            try:
+                specialty = doctor.doctorprofile.specialty if hasattr(doctor, 'doctorprofile') else 'Chưa xác định'
+            except:
+                specialty = 'Chưa xác định'
+                
+            doctor_list.append({
+                'id': doctor.id,
+                'username': doctor.username,
+                'full_name': f"{doctor.first_name} {doctor.last_name}".strip(),
+                'first_name': doctor.first_name,
+                'last_name': doctor.last_name,
+                'email': doctor.email,
+                'specialty': specialty,
+                'phone_number': doctor.phone_number
+            })
+        
+        return Response(doctor_list)
+
+
+class PatientListAPIView(APIView):
+    """API để lấy danh sách bệnh nhân cho các microservices khác"""
+    permission_classes = [AllowAny]  # Cho phép các service khác gọi
+    
+    def get(self, request):
+        patients = User.objects.filter(role='PATIENT').select_related('patientprofile')
+        patient_list = []
+        
+        for patient in patients:
+            patient_list.append({
+                'id': patient.id,
+                'username': patient.username,
+                'full_name': f"{patient.first_name} {patient.last_name}".strip(),
+                'first_name': patient.first_name,
+                'last_name': patient.last_name,
+                'email': patient.email,
+                'phone_number': patient.phone_number
+            })
+        
+        return Response(patient_list)

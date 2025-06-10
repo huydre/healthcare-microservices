@@ -215,11 +215,16 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     years_experience = serializers.IntegerField(source='doctorprofile.years_experience')
     practice_certificate = serializers.CharField(source='doctorprofile.practice_certificate')
     clinic_address = serializers.CharField(source='doctorprofile.clinic_address')
+    full_name = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'phone_number', 'gender',
+        fields = ['id', 'username', 'first_name', 'last_name', 'full_name', 'email', 'phone_number', 'gender',
                   'specialty', 'bio', 'years_experience', 'practice_certificate', 'clinic_address']
+    
+    def get_full_name(self, obj):
+        """Get full name combining first_name and last_name"""
+        return f"{obj.first_name} {obj.last_name}".strip()
 
 # Serializer to register a new doctor, handles User + DoctorProfile
 class DoctorRegisterSerializer(serializers.Serializer):

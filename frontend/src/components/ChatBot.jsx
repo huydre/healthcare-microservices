@@ -39,14 +39,18 @@ export default function ChatBot() {
   const sendToChatbot = async (prompt) => {
     setLoading(true);
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+      if (localStorage.getItem('token')) {
+        headers['Authorization'] = `Bearer ${localStorage.getItem('token')}`;
+      }
       const res = await axios.post(LOCAL_API_URL, {
         message: prompt,
         session_id: sessionId || null,
       }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: headers,
       });
       
       // Save session ID if new

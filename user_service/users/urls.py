@@ -12,4 +12,7 @@ urlpatterns = [
     path('delete/', DeleteAccountView.as_view()),
     path('doctors/create/', DoctorCreateView.as_view(), name='doctor-create'),
     path('doctors/', DoctorListView.as_view(), name='doctor-list'),
+    # API endpoints for microservices
+    path('doctors/list/', DoctorListAPIView.as_view(), name='doctors-api'),
+    path('patients/list/', PatientListAPIView.as_view(), name='patients-api'),
 ]
